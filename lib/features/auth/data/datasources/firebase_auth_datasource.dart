@@ -46,7 +46,30 @@ class FirebaseAuthDataSourceImpl implements FirebaseAuthDataSource {
         );
       }
 
-      return UserModel.fromFirebaseUser(userCredential.user!);
+      final firebaseUser = userCredential.user!;
+      
+      // Get user data from Firestore or create if doesn't exist
+      final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
+      
+      UserModel userModel;
+      if (userDoc.exists && userDoc.data() != null) {
+        // Load existing user from Firestore
+        userModel = UserModel.fromMap(userDoc.data()!, firebaseUser.uid);
+      } else {
+        // Create new user model from Firebase Auth user
+        userModel = UserModel.fromFirebaseUser(firebaseUser);
+        // Save to Firestore
+        await _firestore.collection('users').doc(firebaseUser.uid).set(userModel.toMap());
+      }
+      
+      // Update online status and last seen
+      final updatedUser = userModel.markOnline();
+      await _firestore.collection('users').doc(firebaseUser.uid).update({
+        'isOnline': true,
+        'lastSeen': Timestamp.fromDate(updatedUser.lastSeen),
+      });
+      
+      return updatedUser;
     } on FirebaseAuthException catch (e) {
       throw FirebaseAuthException(
         code: e.code,
@@ -80,23 +103,24 @@ class FirebaseAuthDataSourceImpl implements FirebaseAuthDataSource {
         );
       }
 
-      // Step 2: Update display name
+      // Step 2: Update display name in Firebase Auth
       await userCredential.user!.updateDisplayName(name);
       
-      // Step 3: Check if Firestore document exists and create if it doesn't
-      final uid = userCredential.user!.uid;
-      final userDoc = await _firestore.collection('users').doc(uid).get();
+      // Step 3: Create UserModel with all required fields
+      final userModel = UserModel(
+        id: userCredential.user!.uid,
+        email: email,
+        name: name,
+        photoURL: userCredential.user!.photoURL ?? '',
+        isOnline: true,
+        lastSeen: DateTime.now(),
+        createdAt: DateTime.now(),
+      );
       
-      if (!userDoc.exists) {
-        // Create new user document with required fields
-        await _firestore.collection('users').doc(uid).set({
-          'name': name,
-          'email': email,
-          'createdAt': FieldValue.serverTimestamp(),
-        });
-      }
+      // Step 4: Save to Firestore with all fields
+      await _firestore.collection('users').doc(userModel.id).set(userModel.toMap());
 
-      return UserModel.fromFirebaseUser(userCredential.user!);
+      return userModel;
     } on FirebaseAuthException catch (e) {
       throw FirebaseAuthException(
         code: e.code,
@@ -113,6 +137,16 @@ class FirebaseAuthDataSourceImpl implements FirebaseAuthDataSource {
   @override
   Future<void> logout() async {
     try {
+      final currentFirebaseUser = _firebaseAuth.currentUser;
+      
+      // Update online status to false before signing out
+      if (currentFirebaseUser != null) {
+        await _firestore.collection('users').doc(currentFirebaseUser.uid).update({
+          'isOnline': false,
+          'lastSeen': Timestamp.fromDate(DateTime.now()),
+        });
+      }
+      
       await _firebaseAuth.signOut();
     } catch (e) {
       throw FirebaseAuthException(
@@ -124,16 +158,31 @@ class FirebaseAuthDataSourceImpl implements FirebaseAuthDataSource {
 
   @override
   Stream<UserModel?> get user {
-    return _firebaseAuth.authStateChanges().map(
-          (firebaseUser) => firebaseUser == null
-              ? null
-              : UserModel.fromFirebaseUser(firebaseUser),
-        );
+    return _firebaseAuth.authStateChanges().asyncMap((firebaseUser) async {
+      if (firebaseUser == null) return null;
+      
+      // Get user data from Firestore
+      final userDoc = await _firestore.collection('users').doc(firebaseUser.uid).get();
+      
+      if (userDoc.exists && userDoc.data() != null) {
+        return UserModel.fromMap(userDoc.data()!, firebaseUser.uid);
+      } else {
+        // Fallback to creating from Firebase Auth user
+        final userModel = UserModel.fromFirebaseUser(firebaseUser);
+        // Save to Firestore for future use
+        await _firestore.collection('users').doc(firebaseUser.uid).set(userModel.toMap());
+        return userModel;
+      }
+    });
   }
   
   @override
   UserModel? get currentUser {
     final firebaseUser = _firebaseAuth.currentUser;
-    return firebaseUser == null ? null : UserModel.fromFirebaseUser(firebaseUser);
+    if (firebaseUser == null) return null;
+    
+    // This is synchronous so we can't fetch from Firestore here
+    // Return a basic UserModel from Firebase Auth user
+    return UserModel.fromFirebaseUser(firebaseUser);
   }
 }

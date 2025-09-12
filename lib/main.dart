@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'core/utils/app_router.dart';
+import 'core/utils/constants.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/auth/presentation/bloc/auth_state.dart';
@@ -13,6 +16,15 @@ import 'features/auth/data/repositories/auth_repository_impl.dart';
 import 'features/auth/domain/usecases/login_with_email.dart';
 import 'features/auth/domain/usecases/register_with_email.dart';
 import 'features/auth/domain/usecases/logout.dart';
+import 'features/chat/data/datasources/firebase_chat_datasource.dart';
+import 'features/chat/data/repositories/chat_repository_impl.dart';
+import 'features/chat/data/repositories/chats_repository_impl.dart';
+import 'features/chat/data/datasources/firebase_chats_datasource.dart';
+import 'features/chat/domain/usecases/send_message.dart';
+import 'features/chat/domain/usecases/get_messages.dart';
+import 'features/chat/domain/usecases/get_message_history.dart';
+import 'features/chat/presentation/bloc/chat_bloc.dart';
+import 'features/home/domain/usecases/get_chats_for_user.dart' as home_use_cases;
 import 'firebase_options.dart';
 
 void main() async {
@@ -46,20 +58,50 @@ class App extends StatelessWidget {
       logout,
     );
 
-    return MultiBlocProvider(
+    // Chat dependencies
+    final chatDataSource = FirebaseChatDataSourceImpl(firestore, firebaseAuth);
+    final chatRepository = ChatRepositoryImpl(chatDataSource);
+    
+    final sendMessage = SendMessage(chatRepository);
+    final getMessages = GetMessages(chatRepository);
+    final getMessageHistory = GetMessageHistory(chatRepository);
+    
+    final chatBloc = ChatBloc(
+      sendMessage,
+      getMessages,
+      getMessageHistory,
+    );
+
+    // Chats (Home) dependencies
+    final chatsDataSource = FirebaseChatsDataSourceImpl(firestore);
+    final chatsRepository = ChatsRepositoryImpl(chatsDataSource);
+    
+    final getChatsForUser = home_use_cases.GetChatsForUser(chatsRepository);
+
+    return MultiProvider(
       providers: [
         BlocProvider<AuthBloc>(
           create: (context) => authBloc..add(const AuthCheckRequested()),
         ),
+        BlocProvider<ChatBloc>(
+          create: (context) => chatBloc,
+        ),
+        Provider<home_use_cases.GetChatsForUser>(
+          create: (context) => getChatsForUser,
+        ),
       ],
-      child: MaterialApp(
+      child: MaterialApp.router(
         title: 'Chat App',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
-          primarySwatch: Colors.blue,
+          primaryColor: AppColors.primary,
+          colorScheme: ColorScheme.fromSwatch().copyWith(
+            primary: AppColors.primary,
+            secondary: AppColors.secondary,
+          ),
           scaffoldBackgroundColor: Colors.white,
         ),
-        home: const AuthGate(),
+        routerConfig: AppRouter.router,
       ),
     );
   }
