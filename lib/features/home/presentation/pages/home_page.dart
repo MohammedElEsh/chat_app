@@ -29,7 +29,7 @@ class HomePage extends StatelessWidget {
 
 class HomeScreen extends StatefulWidget {
   final dynamic currentUser;
-  
+
   const HomeScreen({super.key, required this.currentUser});
 
   @override
@@ -37,24 +37,14 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  bool _showSearchUsers = false;
-
   @override
   void initState() {
     super.initState();
-    _checkIfUserHasChats();
     // Create or update user document
     ChatService.createOrUpdateUser(widget.currentUser);
   }
 
-  void _checkIfUserHasChats() async {
-    final hasChats = await ChatService.userHasChats(widget.currentUser.id);
-    if (!hasChats && mounted) {
-      setState(() {
-        _showSearchUsers = true;
-      });
-    }
-  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -71,39 +61,15 @@ class _HomeScreenState extends State<HomeScreen> {
         appBar: AppBar(
           elevation: 0,
           backgroundColor: Colors.transparent,
-          title: Text(
-            _showSearchUsers ? 'Find Users' : 'Chats',
-            style: const TextStyle(
+          title: const Text(
+            'Chats',
+            style: TextStyle(
               fontSize: 28,
               fontWeight: FontWeight.bold,
               color: Colors.white,
             ),
           ),
           actions: [
-            if (!_showSearchUsers)
-              IconButton(
-                icon: Icon(
-                  Icons.search,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _showSearchUsers = true;
-                  });
-                },
-              ),
-            if (_showSearchUsers)
-              IconButton(
-                icon: Icon(
-                  Icons.close,
-                  color: Colors.white,
-                ),
-                onPressed: () {
-                  setState(() {
-                    _showSearchUsers = false;
-                  });
-                },
-              ),
             IconButton(
               icon: const Icon(
                 Icons.logout,
@@ -115,19 +81,52 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        body: _showSearchUsers ? _buildUserSearch() : _buildChatList(),
-        floatingActionButton: !_showSearchUsers
-            ? FloatingActionButton(
-                onPressed: () {
-                  setState(() {
-                    _showSearchUsers = true;
-                  });
-                },
-                backgroundColor: Colors.white,
-                foregroundColor: Color(0xFF6C52FF),
-                child: const Icon(Icons.person_add),
-              )
-            : null,
+        body: _buildChatList(),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.of(context).push(
+              MaterialPageRoute(
+                builder: (context) => Scaffold(
+                  appBar: AppBar(
+                    title: const Text('Find Users'),
+                    backgroundColor: const Color(0xFF6C52FF),
+                  ),
+                  body: UserSearchWidget(
+                    currentUserId: widget.currentUser.id,
+                    onUserSelected: (String otherUserId, Map<String, dynamic> userData) async {
+                      Navigator.of(context).pop(); // Close the search screen
+                      // Create or get chat with selected user
+                      final chatId = await ChatService.createOrGetChat(
+                        currentUserId: widget.currentUser.id,
+                        otherUserId: otherUserId,
+                        otherUserData: userData,
+                      );
+
+                      // Navigate to chat screen
+                      if (mounted) {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => ChatScreen(
+                              chatId: chatId,
+                              currentUserId: widget.currentUser.id,
+                              otherUserId: otherUserId,
+                              otherUserName: userData['name'] ?? 'User',
+                              otherUserPhotoURL: userData['photoURL'] ?? '',
+                            ),
+                          ),
+                        );
+                      }
+                    },
+                  ),
+                ),
+              ),
+            );
+          },
+          backgroundColor: Colors.white,
+          foregroundColor: Color(0xFF6C52FF),
+          child: const Icon(Icons.person_add),
+        ),
       ),
     );
   }
@@ -240,22 +239,22 @@ class _HomeScreenState extends State<HomeScreen> {
             itemBuilder: (context, index) {
               final chatDoc = chatDocs[index];
               final chatData = chatDoc.data() as Map<String, dynamic>;
-              
+
               final otherParticipant = ChatService.getOtherParticipant(
                 chatData,
                 widget.currentUser.id,
               );
-              
+
               if (otherParticipant == null) {
                 return const SizedBox.shrink();
               }
-              
+
               final otherUserName = otherParticipant['name'] ?? 'Unknown User';
               final otherUserPhotoURL = otherParticipant['photoURL'] ?? '';
               final otherUserId = otherParticipant['id'] ?? '';
               final lastMessage = chatData['lastMessage'] ?? '';
               final lastMessageTime = chatData['lastMessageTime'] as Timestamp?;
-              
+
               return ChatListTile(
                 chatId: chatDoc.id,
                 otherUserId: otherUserId,
@@ -285,40 +284,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _buildUserSearch() {
-    return UserSearchWidget(
-      currentUserId: widget.currentUser.id,
-      onUserSelected: (String otherUserId, Map<String, dynamic> userData) async {
-        // Create or get chat with selected user
-        final chatId = await ChatService.createOrGetChat(
-          currentUserId: widget.currentUser.id,
-          otherUserId: otherUserId,
-          otherUserData: userData,
-        );
-        
-        // Navigate to chat screen
-        if (mounted) {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatScreen(
-                chatId: chatId,
-                currentUserId: widget.currentUser.id,
-                otherUserId: otherUserId,
-                otherUserName: userData['name'] ?? 'User',
-                otherUserPhotoURL: userData['photoURL'] ?? '',
-              ),
-            ),
-          ).then((_) {
-            // Return to chat list after chatting
-            setState(() {
-              _showSearchUsers = false;
-            });
-          });
-        }
-      },
-    );
-  }
+
 }
 
 class ChatListTile extends StatelessWidget {
@@ -358,13 +324,13 @@ class ChatListTile extends StatelessWidget {
           backgroundColor: Colors.white.withOpacity(0.3),
           child: otherUserPhotoURL.isEmpty
               ? Text(
-                  otherUserName.isNotEmpty ? otherUserName[0].toUpperCase() : 'U',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 20,
-                  ),
-                )
+            otherUserName.isNotEmpty ? otherUserName[0].toUpperCase() : 'U',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 20,
+            ),
+          )
               : null,
         ),
         title: Text(
@@ -387,12 +353,12 @@ class ChatListTile extends StatelessWidget {
         ),
         trailing: lastMessageTime != null
             ? Text(
-                _formatTimestamp(lastMessageTime!),
-                style: const TextStyle(
-                  color: Colors.white60,
-                  fontSize: 12,
-                ),
-              )
+          _formatTimestamp(lastMessageTime!),
+          style: const TextStyle(
+            color: Colors.white60,
+            fontSize: 12,
+          ),
+        )
             : null,
         onTap: onTap,
       ),
@@ -492,14 +458,14 @@ class _UserSearchWidgetState extends State<UserSearchWidget> {
               prefixIcon: const Icon(Icons.search, color: Colors.white70),
               suffixIcon: _searchQuery.isNotEmpty
                   ? IconButton(
-                      icon: const Icon(Icons.clear, color: Colors.white70),
-                      onPressed: () {
-                        _searchController.clear();
-                        setState(() {
-                          _searchQuery = '';
-                        });
-                      },
-                    )
+                icon: const Icon(Icons.clear, color: Colors.white70),
+                onPressed: () {
+                  _searchController.clear();
+                  setState(() {
+                    _searchQuery = '';
+                  });
+                },
+              )
                   : null,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(25),
@@ -623,11 +589,11 @@ class _UserSearchWidgetState extends State<UserSearchWidget> {
                 itemBuilder: (context, index) {
                   final userDoc = userDocs[index];
                   final userData = userDoc.data() as Map<String, dynamic>;
-                  
+
                   final userName = userData['name'] ?? 'User';
                   final userEmail = userData['email'] ?? '';
                   final userPhotoURL = userData['photoURL'] ?? '';
-                  
+
                   return UserListTile(
                     userId: userDoc.id,
                     userName: userName,
@@ -674,13 +640,13 @@ class UserListTile extends StatelessWidget {
         backgroundColor: Colors.blue.shade200,
         child: userPhotoURL.isEmpty
             ? Text(
-                userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              )
+          userName.isNotEmpty ? userName[0].toUpperCase() : 'U',
+          style: const TextStyle(
+            color: Colors.white,
+            fontWeight: FontWeight.bold,
+            fontSize: 20,
+          ),
+        )
             : null,
       ),
       title: Text(
@@ -693,13 +659,13 @@ class UserListTile extends StatelessWidget {
       ),
       subtitle: userEmail.isNotEmpty
           ? Text(
-              userEmail,
-              style: TextStyle(
-                color: Colors.grey.shade600,
-                fontSize: 14,
-              ),
-              overflow: TextOverflow.ellipsis,
-            )
+        userEmail,
+        style: TextStyle(
+          color: Colors.grey.shade600,
+          fontSize: 14,
+        ),
+        overflow: TextOverflow.ellipsis,
+      )
           : null,
       trailing: Icon(
         Icons.chat,

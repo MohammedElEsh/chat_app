@@ -3,11 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../data/services/chat_service.dart';
 import '../../../../core/utils/assets.dart';
 import '../../../../core/utils/constants.dart';
-import '../../../../core/utils/app_router.dart';
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -105,6 +103,7 @@ class _ChatScreenState extends State<ChatScreen> {
         appBar: AppBar(
           toolbarHeight: 90,
           elevation: 0,
+          automaticallyImplyLeading: false,
           flexibleSpace: Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
@@ -119,54 +118,93 @@ class _ChatScreenState extends State<ChatScreen> {
             statusBarColor: Colors.transparent,
             statusBarIconBrightness: Brightness.light,
           ),
-          leading: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => context.go(AppRouter.home),
-          ),
-          // تم نقل الاسم والصورة إلى الجانب الأيسر
-          title: Row(
-            children: [
-              CircleAvatar(
-                radius: 20,
-                backgroundImage: widget.otherUserPhotoURL.isNotEmpty
-                    ? NetworkImage(widget.otherUserPhotoURL)
-                    : null,
-                backgroundColor: Colors.white.withOpacity(0.3),
-                child: widget.otherUserPhotoURL.isEmpty
-                    ? Text(
-                  widget.otherUserName.isNotEmpty
-                      ? widget.otherUserName[0].toUpperCase()
-                      : 'U',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 16,
-                  ),
-                )
-                    : null,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+          title: Padding(
+            padding: const EdgeInsets.only(left: 8.0),
+            child: StreamBuilder<DocumentSnapshot>(
+              stream: FirebaseFirestore.instance
+                  .collection('users')
+                  .doc(widget.otherUserId)
+                  .snapshots(),
+              builder: (context, snapshot) {
+                bool isOnline = false;
+                DateTime? lastSeen;
+
+                if (snapshot.hasData && snapshot.data != null && snapshot.data!.exists) {
+                  final userData = snapshot.data!.data() as Map<String, dynamic>?;
+                  if (userData != null) {
+                    isOnline = userData['isOnline'] ?? false;
+                    if (userData['lastSeen'] != null) {
+                      lastSeen = (userData['lastSeen'] as Timestamp).toDate();
+                    }
+                  }
+                }
+
+                return Row(
                   children: [
-                    Text(
-                      widget.otherUserName,
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
-                      ),
-                      overflow: TextOverflow.ellipsis,
+                    CircleAvatar(
+                      radius: 20,
+                      backgroundImage: widget.otherUserPhotoURL.isNotEmpty
+                          ? NetworkImage(widget.otherUserPhotoURL)
+                          : null,
+                      backgroundColor: Colors.white.withOpacity(0.3),
+                      child: widget.otherUserPhotoURL.isEmpty
+                          ? Text(
+                        widget.otherUserName.isNotEmpty
+                            ? widget.otherUserName[0].toUpperCase()
+                            : 'U',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      )
+                          : null,
                     ),
-                    const Text(
-                      'Online',
-                      style: TextStyle(fontSize: 12, color: Colors.white70),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.otherUserName,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          if (isOnline)
+                            const Text(
+                              'Online',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.green,
+                              ),
+                            )
+                          else if (lastSeen != null)
+                            Text(
+                              'Last seen: ${DateFormat('MMM d, HH:mm').format(lastSeen)}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                              ),
+                            )
+                          else
+                            const Text(
+                              'Offline',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: Colors.grey,
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ],
-                ),
-              ),
-            ],
+                );
+              },
+            ),
           ),
           actions: [
             IconButton(

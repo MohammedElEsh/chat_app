@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../bloc/auth_bloc.dart';
-import '../bloc/auth_event.dart';
-import '../bloc/auth_state.dart';
-import '../views/login/login_view_body.dart';
-import 'register_page.dart';
+import '../../../presentation/bloc/auth_bloc.dart';
+import '../../../presentation/bloc/auth_event.dart';
+import '../../../presentation/bloc/auth_state.dart';
+import '../register/register_page.dart';
+import 'login_view_body.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
