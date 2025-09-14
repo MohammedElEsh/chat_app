@@ -25,6 +25,7 @@ class CallPage extends StatefulWidget {
 class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
   bool _hasNotifiedCallEnd = false;
   bool _isCallActive = true;
+  bool _hasNavigatedBack = false;
 
   @override
   void initState() {
@@ -32,14 +33,15 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     developer.log('📞 CallPage initialized for call: ${widget.callID}');
     
-    // Set up a timer to check call state periodically
-    _startCallStateMonitoring();
+    // Register this page with the call invitation service for call end handling
+    CallInvitationService.instance.registerCallPage(widget.callID, _handleExternalCallEnd);
   }
 
   @override
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
-    _handleCallEnd();
+    CallInvitationService.instance.unregisterCallPage(widget.callID);
+    _handleCallEnd(ZegoConfig.endReasonDisconnection);
     developer.log('🗑️ CallPage disposed for call: ${widget.callID}');
     super.dispose();
   }
@@ -50,36 +52,61 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     
     if (state == AppLifecycleState.paused || state == AppLifecycleState.detached) {
       // App is going to background or being closed
-      _handleCallEnd();
+      _handleCallEnd(ZegoConfig.endReasonAppBackground);
     }
   }
 
-  /// Monitor call state - this is a fallback for detecting call ends
-  void _startCallStateMonitoring() {
-    // Since we can't reliably hook into ZegoUIKit's internal end events,
-    // we rely on the service's Firestore listener to handle call ends
-    developer.log('🔍 Started call state monitoring for: ${widget.callID}');
+  /// Handle external call end from other user (called by service)
+  void _handleExternalCallEnd() {
+    if (_hasNavigatedBack) return;
+    _hasNavigatedBack = true;
+    
+    developer.log('📡 External call end received for: ${widget.callID}');
+    
+    // Navigate back immediately without calling notifyCallEnded
+    // (the other user already ended the call)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _safeNavigateBack('external call end');
+    });
   }
 
+  /// Safe navigation helper with comprehensive checks
+  void _safeNavigateBack(String reason) {
+    try {
+      if (!mounted) {
+        developer.log('⚠️ Cannot navigate: Widget not mounted ($reason)');
+        return;
+      }
+      
+      final navigator = Navigator.of(context);
+      if (navigator.canPop()) {
+        navigator.pop();
+        developer.log('⬅️ Navigated back from $reason');
+      } else {
+        developer.log('⚠️ Cannot navigate: No route to pop ($reason)');
+      }
+    } catch (e) {
+      developer.log('❌ Navigation failed ($reason): $e');
+    }
+  }
+  
   /// Handle call end - notify service and navigate back
-  void _handleCallEnd() {
-    if (!_hasNotifiedCallEnd && _isCallActive) {
-      _hasNotifiedCallEnd = true;
-      _isCallActive = false;
-      
-      developer.log('🔴 Call ended: ${widget.callID}');
-      
-      // Notify the invitation service that call has ended
-      CallInvitationService.instance.notifyCallEnded(widget.callID);
-      
-      // Navigate back to previous screen (chat) after a short delay
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted && Navigator.of(context).canPop()) {
-          Navigator.of(context).pop();
-          developer.log('⬅️ Navigated back from call');
-        }
-      });
-    }
+  void _handleCallEnd(String endReason) {
+    if (_hasNotifiedCallEnd || !_isCallActive || _hasNavigatedBack) return;
+    
+    _hasNotifiedCallEnd = true;
+    _isCallActive = false;
+    _hasNavigatedBack = true;
+    
+    developer.log('🔴 Call ended: ${widget.callID}, reason: $endReason');
+    
+    // Notify the invitation service that call has ended
+    CallInvitationService.instance.notifyCallEnded(widget.callID, endReason: endReason);
+    
+    // Navigate back to previous screen (chat) after a short delay
+    Future.delayed(const Duration(milliseconds: 300), () {
+      _safeNavigateBack('call end ($endReason)');
+    });
   }
 
   @override
@@ -88,7 +115,7 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
       canPop: false,
       onPopInvokedWithResult: (bool didPop, Object? result) {
         if (!didPop) {
-          _handleCallEnd();
+          _handleCallEnd(ZegoConfig.endReasonBackButton);
         }
       },
       child: ZegoUIKitPrebuiltCall(
@@ -130,10 +157,14 @@ class _CallPageState extends State<CallPage> with WidgetsBindingObserver {
     config.turnOnMicrophoneWhenJoining = true;
     config.useSpeakerWhenJoining = widget.isVideoCall;
     
+    // Note: ZegoUIKit hang up button detection is not available in this API version
+    // We rely on other methods for comprehensive call end detection
+    
     // Note: Call end detection is handled by:
     // 1. PopScope for back button/gesture
     // 2. App lifecycle observer for app backgrounding
     // 3. CallInvitationService Firestore listener for remote call ends
+    // 4. Widget disposal when page is closed
     developer.log('📱 Call config built for: ${widget.isVideoCall ? "Video" : "Voice"} call');
 
     return config;

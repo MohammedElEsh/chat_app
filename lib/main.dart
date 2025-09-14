@@ -28,6 +28,9 @@ import 'features/call/services/call_invitation_service.dart';
 import 'core/services/connectivity_service.dart';
 import 'firebase_options.dart';
 
+// Global navigator key for app-wide navigation
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(

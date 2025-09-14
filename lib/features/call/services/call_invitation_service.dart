@@ -7,6 +7,7 @@ import 'package:zego_uikit_prebuilt_call/zego_uikit_prebuilt_call.dart';
 import 'package:zego_uikit_signaling_plugin/zego_uikit_signaling_plugin.dart';
 import '../../../core/config/zego_config.dart';
 import '../../../core/services/connectivity_service.dart';
+import '../../../main.dart' show navigatorKey;
 import '../data/services/call_service.dart';
 import '../presentation/widgets/incoming_call_dialog.dart';
 import '../presentation/pages/call_page.dart';
@@ -26,6 +27,14 @@ class CallInvitationService {
   String? _currentCallId;
   String? _storedCallType;
   Timer? _timeoutTimer;
+  
+  // Call session tracking
+  StreamSubscription<DocumentSnapshot>? _activeCallListener;
+  bool _isInActiveCall = false;
+  
+  // CallPage registration for external call end handling
+  String? _registeredCallId;
+  VoidCallback? _registeredCallEndCallback;
   
   // Event stream controllers for invitation responses
   final StreamController<Map<String, dynamic>> _invitationEvents = StreamController.broadcast();
@@ -146,7 +155,7 @@ class CallInvitationService {
       }
       
       // Generate consistent call ID
-      final callID = _generateConsistentCallID(currentUser.uid, calleeId);
+      final callID = ZegoConfig.generateConsistentCallID(currentUser.uid, calleeId);
       final invitationId = ZegoConfig.generateInvitationID();
       
       // Store current invitation info
@@ -192,12 +201,73 @@ class CallInvitationService {
     }
   }
   
-  /// Generate consistent call ID that both users will use
-  String _generateConsistentCallID(String userId1, String userId2) {
-    // Sort user IDs to ensure same call ID regardless of who initiates
-    final sortedIds = [userId1, userId2]..sort();
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return "${sortedIds[0]}_${sortedIds[1]}_$timestamp";
+  /// Create active call session in Firestore
+  Future<void> _createCallSession(String callId, String callerId, String calleeId, String callType) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      await _firestore.collection(ZegoConfig.callsCollection).doc(callId).set({
+        'callId': callId,
+        'callerId': callerId,
+        'calleeId': calleeId,
+        'participants': [callerId, calleeId],
+        'callType': callType,
+        'status': ZegoConfig.callStatusActive,
+        'startedAt': FieldValue.serverTimestamp(),
+        'startedBy': currentUser.uid,
+        'endedBy': null,
+        'endedAt': null,
+        'endReason': null,
+      });
+      
+      developer.log('📞 Created call session: $callId');
+    } catch (e) {
+      developer.log('❌ Failed to create call session: $e');
+    }
+  }
+  
+  /// Start listening to active call session
+  void _startCallSessionListener(String callId) {
+    final currentUser = _auth.currentUser;
+    if (currentUser == null) return;
+    
+    _activeCallListener?.cancel();
+    _activeCallListener = _firestore
+        .collection(ZegoConfig.callsCollection)
+        .doc(callId)
+        .snapshots()
+        .listen((snapshot) {
+      if (!snapshot.exists) return;
+      
+      final data = snapshot.data() as Map<String, dynamic>;
+      final status = data['status'] ?? ZegoConfig.callStatusActive;
+      final endedBy = data['endedBy'] as String?;
+      
+      developer.log('📡 Call session update: $callId - Status: $status');
+      
+      // Handle call end from other user
+      if (status == ZegoConfig.callStatusEnded && endedBy != null && endedBy != currentUser.uid) {
+        final endedByName = data['endedByName'] ?? 'Other user';
+        final endReason = data['endReason'] ?? ZegoConfig.endReasonHangUp;
+        
+        developer.log('🔴 Call ended by other user: $endedByName');
+        _handleRemoteCallEnd(endedByName, endReason);
+      }
+    }, onError: (error) {
+      developer.log('❌ Call session listener error: $error');
+    });
+    
+    _isInActiveCall = true;
+    developer.log('🔊 Started call session listener for: $callId');
+  }
+  
+  /// Stop listening to active call session
+  void _stopCallSessionListener() {
+    _activeCallListener?.cancel();
+    _activeCallListener = null;
+    _isInActiveCall = false;
+    developer.log('🔇 Stopped call session listener');
   }
   
   /// Send Zego invitation using UIKit service
@@ -331,34 +401,11 @@ class CallInvitationService {
   
   // Event handler methods for invitation responses
   
-  /// Handle incoming call received
-  void _onIncomingCallReceived(Map<String, dynamic> data) {
-    developer.log('📱 Incoming call received: $data');
-    final context = navigatorKey.currentContext;
-    if (context == null) return;
-    
-    final callerName = data['callerName'] ?? 'Unknown';
-    final callerId = data['callerId'] ?? '';
-    final isVideoCall = data['isVideoCall'] ?? false;
-    final callId = data['callId'] ?? '';
-    
-    IncomingCallDialog.show(
-      context: context,
-      callerName: callerName,
-      callerId: callerId,
-      isVideoCall: isVideoCall,
-      onAccept: () => _handleIncomingCallAccept(callId, isVideoCall),
-      onDecline: () => _handleIncomingCallDecline(),
-    );
-  }
-  
   /// Handle incoming call cancelled by caller
   void _onIncomingCallCancelled() {
     developer.log('❌ Incoming call cancelled');
     final context = navigatorKey.currentContext;
-    if (context != null && Navigator.canPop(context)) {
-      Navigator.pop(context); // Close incoming call dialog
-    }
+    _safeNavigationPop(context);
   }
   
   /// Handle outgoing call accepted by callee
@@ -369,12 +416,13 @@ class CallInvitationService {
     final context = navigatorKey.currentContext;
     if (context != null && _currentCallId != null) {
       // Close calling status dialog
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
+      _safeNavigationPop(context);
       
       // Determine call type from stored invitation data
       final isVideoCall = _storedCallType == ZegoConfig.callTypeVideo;
+      
+      // Start call session monitoring for caller
+      _startCallSessionListener(_currentCallId!);
       
       // Navigate caller to call page immediately
       _navigateToCallPage(_currentCallId!, isVideoCall);
@@ -395,9 +443,7 @@ class CallInvitationService {
     final context = navigatorKey.currentContext;
     if (context != null) {
       // Close calling status dialog
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
+      _safeNavigationPop(context);
       
       _showErrorMessage(context, 'Call was declined');
     }
@@ -414,9 +460,7 @@ class CallInvitationService {
     final context = navigatorKey.currentContext;
     if (context != null) {
       // Close calling status dialog
-      if (Navigator.canPop(context)) {
-        Navigator.pop(context);
-      }
+      _safeNavigationPop(context);
       
       _showErrorMessage(context, 'Call timed out - no response');
     }
@@ -523,17 +567,115 @@ class CallInvitationService {
     _storedCallType = null;
   }
   
+  /// Handle remote call end from other user
+  void _handleRemoteCallEnd(String endedByName, String endReason) {
+    developer.log('🔴 Handling remote call end by: $endedByName, reason: $endReason');
+    
+    // Trigger CallPage callback first for immediate navigation
+    _triggerExternalCallEnd();
+    
+    // Fallback navigation if CallPage callback doesn't work
+    final context = navigatorKey.currentContext;
+    if (_isInActiveCall) {
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _safeNavigationPop(context);
+      });
+    }
+    
+    // Show notification about who ended the call
+    if (context != null) {
+      String message;
+      switch (endReason) {
+        case ZegoConfig.endReasonHangUp:
+          message = 'Call ended by $endedByName';
+          break;
+        case ZegoConfig.endReasonDisconnection:
+          message = '$endedByName lost connection';
+          break;
+        case ZegoConfig.endReasonBackButton:
+          message = '$endedByName left the call';
+          break;
+        default:
+          message = 'Call ended';
+      }
+      
+      Future.delayed(const Duration(milliseconds: 200), () {
+        _showCallEndMessage(context, message);
+      });
+    }
+    
+    // Clean up call state
+    _stopCallSessionListener();
+    _currentCallId = null;
+    _storedCallType = null;
+  }
+  
+  /// Show call end message with safe context checking
+  void _showCallEndMessage(BuildContext context, String message) {
+    try {
+      if (!context.mounted) return;
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(message),
+          backgroundColor: Colors.orange,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } catch (e) {
+      developer.log('❌ Failed to show call end message: $e');
+    }
+  }
+  
+  /// Safe navigation helper that checks context validity
+  bool _canNavigate(BuildContext? context) {
+    return context != null && 
+           context.mounted && 
+           Navigator.of(context).canPop() &&
+           navigatorKey.currentState != null &&
+           navigatorKey.currentState!.mounted;
+  }
+  
+  /// Safe navigation pop with error handling
+  void _safeNavigationPop(BuildContext? context) {
+    try {
+      if (_canNavigate(context)) {
+        Navigator.of(context!).pop();
+        developer.log('⬅️ Safe navigation pop successful');
+      } else {
+        developer.log('⚠️ Cannot navigate - invalid context or navigator state');
+      }
+    } catch (e) {
+      developer.log('❌ Navigation pop failed: $e');
+    }
+  }
+  
   /// Handle incoming call accept
   Future<void> _handleIncomingCallAccept(String callId, bool isVideoCall) async {
     try {
       final context = navigatorKey.currentContext;
       if (context != null) {
-        Navigator.pop(context); // Close incoming call dialog
+        _safeNavigationPop(context); // Close incoming call dialog
       }
       
       // Update Firestore status to accepted
       if (_currentInvitationId != null) {
         await _updateInvitationStatus(_currentInvitationId!, ZegoConfig.statusAccepted);
+      }
+      
+      // Create call session and start monitoring
+      final currentUser = _auth.currentUser;
+      if (currentUser != null) {
+        final participants = ZegoConfig.getParticipantsFromCallID(callId);
+        if (participants.length == 2) {
+          await _createCallSession(
+            callId, 
+            participants[0], 
+            participants[1], 
+            isVideoCall ? ZegoConfig.callTypeVideo : ZegoConfig.callTypeVoice
+          );
+          _startCallSessionListener(callId);
+        }
       }
       
       // Navigate to call page
@@ -549,7 +691,7 @@ class CallInvitationService {
     try {
       final context = navigatorKey.currentContext;
       if (context != null) {
-        Navigator.pop(context); // Close incoming call dialog
+        _safeNavigationPop(context); // Close incoming call dialog
       }
       
       // Update Firestore status to declined
@@ -598,9 +740,15 @@ class CallInvitationService {
   }
   
   /// Notify that call has ended - triggers navigation back for both users
-  Future<void> notifyCallEnded(String callId) async {
+  Future<void> notifyCallEnded(String callId, {String? endReason}) async {
     try {
-      developer.log('🔴 Notifying call ended: $callId');
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      developer.log('🔴 Notifying call ended: $callId by ${currentUser.uid}');
+      
+      // Update call session status to ended
+      await _endCallSession(callId, currentUser.uid, endReason ?? ZegoConfig.endReasonHangUp);
       
       // Find and update any pending/accepted invitations for this call
       final querySnapshot = await _firestore
@@ -619,7 +767,8 @@ class CallInvitationService {
         developer.log('✅ Updated invitation ${doc.id} to ended status');
       }
       
-      // Clear current call info
+      // Clean up local state
+      _stopCallSessionListener();
       if (_currentCallId == callId) {
         _currentCallId = null;
         _storedCallType = null;
@@ -627,6 +776,26 @@ class CallInvitationService {
       
     } catch (e) {
       developer.log('❌ Failed to notify call ended: $e');
+    }
+  }
+  
+  /// End call session in Firestore
+  Future<void> _endCallSession(String callId, String endedBy, String endReason) async {
+    try {
+      final currentUser = _auth.currentUser;
+      if (currentUser == null) return;
+      
+      await _firestore.collection(ZegoConfig.callsCollection).doc(callId).update({
+        'status': ZegoConfig.callStatusEnded,
+        'endedBy': endedBy,
+        'endedByName': currentUser.displayName ?? currentUser.email?.split('@')[0] ?? 'User',
+        'endedAt': FieldValue.serverTimestamp(),
+        'endReason': endReason,
+      });
+      
+      developer.log('🔴 Ended call session: $callId by $endedBy');
+    } catch (e) {
+      developer.log('❌ Failed to end call session: $e');
     }
   }
   
@@ -668,13 +837,39 @@ class CallInvitationService {
     );
   }
   
+  /// Register CallPage for external call end handling
+  void registerCallPage(String callId, VoidCallback onCallEnd) {
+    _registeredCallId = callId;
+    _registeredCallEndCallback = onCallEnd;
+    developer.log('📱 Registered CallPage for call: $callId');
+  }
+  
+  /// Unregister CallPage
+  void unregisterCallPage(String callId) {
+    if (_registeredCallId == callId) {
+      _registeredCallId = null;
+      _registeredCallEndCallback = null;
+      developer.log('📱 Unregistered CallPage for call: $callId');
+    }
+  }
+  
+  /// Trigger external call end for registered CallPage
+  void _triggerExternalCallEnd() {
+    if (_registeredCallEndCallback != null) {
+      developer.log('🔔 Triggering external call end for registered CallPage');
+      _registeredCallEndCallback!();
+    }
+  }
+  
   /// Dispose resources
   void dispose() {
     _firestoreListener?.cancel();
+    _activeCallListener?.cancel();
     _cancelTimeoutTimer();
     _isFirestoreListening = false;
+    _isInActiveCall = false;
+    _registeredCallId = null;
+    _registeredCallEndCallback = null;
   }
 }
 
-// Global navigator key for accessing context
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
