@@ -8,7 +8,7 @@ import 'package:zego_uikit_signaling_plugin/zego_uikit_signaling_plugin.dart';
 import '../../../core/config/zego_config.dart';
 import '../../../core/services/connectivity_service.dart';
 import '../../../main.dart' show navigatorKey;
-import '../data/services/call_service.dart';
+import 'call_service.dart';
 import '../presentation/widgets/incoming_call_dialog.dart';
 import '../presentation/pages/call_page.dart';
 
