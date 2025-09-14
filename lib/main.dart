@@ -4,7 +4,6 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'core/utils/app_router.dart';
 import 'core/utils/constants.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
@@ -25,6 +24,8 @@ import 'features/chat/domain/usecases/get_messages.dart';
 import 'features/chat/domain/usecases/get_message_history.dart';
 import 'features/chat/presentation/bloc/chat_bloc.dart';
 import 'features/home/domain/usecases/get_chats_for_user.dart' as home_use_cases;
+import 'features/call/services/call_invitation_service.dart';
+import 'core/services/connectivity_service.dart';
 import 'firebase_options.dart';
 
 void main() async {
@@ -32,6 +33,19 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize services
+  ConnectivityService.instance.initialize();
+  
+  // Initialize call invitation service after Firebase auth is ready
+  FirebaseAuth.instance.authStateChanges().listen((user) {
+    if (user != null) {
+      CallInvitationService.instance.initialize();
+    } else {
+      CallInvitationService.instance.dispose();
+    }
+  });
+  
   runApp(const App());
 }
 
@@ -90,7 +104,8 @@ class App extends StatelessWidget {
           create: (context) => getChatsForUser,
         ),
       ],
-      child: MaterialApp.router(
+      child: MaterialApp(
+        navigatorKey: navigatorKey,
         title: 'Chat App',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
@@ -101,7 +116,7 @@ class App extends StatelessWidget {
           ),
           scaffoldBackgroundColor: Colors.white,
         ),
-        routerConfig: AppRouter.router,
+        home: const AuthGate(),
       ),
     );
   }

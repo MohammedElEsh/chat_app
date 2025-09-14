@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+import 'dart:developer' as developer;
 import '../../../../core/utils/constants.dart';
-import '../../../call/presentation/pages/call_page.dart';
-import '../../../call/data/services/call_service.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import '../../../call/services/call_invitation_service.dart';
+import '../../../call/presentation/widgets/calling_status_widget.dart';
 
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String otherUserId;
@@ -146,55 +146,82 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
     );
   }
 
-  void _startVoiceCall(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      _showAuthError(context);
-      return;
-    }
-
-    final callID = CallService.generateCallId(currentUser.uid, otherUserId);
-    
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => CallPage(
-          callID: callID,
-          currentUserId: currentUser.uid,
-          currentUserName: currentUser.displayName ?? otherUserName,
-          isVideoCall: false,
-        ),
-      ),
+  void _startVoiceCall(BuildContext context) async {
+    // Show calling status dialog first
+    CallingStatusWidget.show(
+      context: context,
+      calleeName: otherUserName,
+      isVideoCall: false,
+      onCancel: () {
+        // Handle cancel from caller side
+        CallInvitationService.instance.cancelInvitation();
+        Navigator.of(context).pop();
+      },
     );
+    
+    // Send the invitation
+    final success = await CallInvitationService.instance.sendInvitation(
+      calleeId: otherUserId,
+      calleeName: otherUserName,
+      isVideoCall: false,
+      context: context,
+    );
+    
+    if (!success) {
+      // Close calling status dialog on failure
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to send call invitation'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } else {
+      // Success feedback
+      developer.log('✅ Voice call invitation sent to $otherUserName');
+    }
   }
 
-  void _startVideoCall(BuildContext context) {
-    final currentUser = FirebaseAuth.instance.currentUser;
-    if (currentUser == null) {
-      _showAuthError(context);
-      return;
-    }
-
-    final callID = CallService.generateCallId(currentUser.uid, otherUserId);
+  void _startVideoCall(BuildContext context) async {
+    // Show calling status dialog first
+    CallingStatusWidget.show(
+      context: context,
+      calleeName: otherUserName,
+      isVideoCall: true,
+      onCancel: () {
+        // Handle cancel from caller side
+        CallInvitationService.instance.cancelInvitation();
+        Navigator.of(context).pop();
+      },
+    );
     
-    Navigator.of(context).push(
-      MaterialPageRoute(
-        builder: (context) => CallPage(
-          callID: callID,
-          currentUserId: currentUser.uid,
-          currentUserName: currentUser.displayName ?? otherUserName,
-          isVideoCall: true,
+    // Send the invitation
+    final success = await CallInvitationService.instance.sendInvitation(
+      calleeId: otherUserId,
+      calleeName: otherUserName,
+      isVideoCall: true,
+      context: context,
+    );
+    
+    if (!success) {
+      // Close calling status dialog on failure
+      if (Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Failed to send call invitation'),
+          backgroundColor: Colors.red,
         ),
-      ),
-    );
-  }
-
-  void _showAuthError(BuildContext context) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('You must be logged in to make calls'),
-        backgroundColor: Colors.red,
-      ),
-    );
+      );
+    } else {
+      // Success feedback
+      developer.log('✅ Video call invitation sent to $otherUserName');
+    }
   }
 
   @override
