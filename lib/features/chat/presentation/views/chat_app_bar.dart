@@ -3,6 +3,9 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/utils/constants.dart';
+import '../../../call/presentation/pages/call_page.dart';
+import '../../../call/data/services/call_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String otherUserId;
@@ -129,15 +132,68 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
       actions: [
         IconButton(
           icon: const Icon(Icons.call, color: Colors.white),
-          onPressed: () {
-            // TODO: Implement voice call
-          },
+          onPressed: () => _startVoiceCall(context),
+        ),
+        IconButton(
+          icon: const Icon(Icons.videocam, color: Colors.white),
+          onPressed: () => _startVideoCall(context),
         ),
         IconButton(
           icon: const Icon(Icons.more_vert, color: Colors.white),
           onPressed: onOptionsPressed,
         ),
       ],
+    );
+  }
+
+  void _startVoiceCall(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      _showAuthError(context);
+      return;
+    }
+
+    final callID = CallService.generateCallId(currentUser.uid, otherUserId);
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CallPage(
+          callID: callID,
+          currentUserId: currentUser.uid,
+          currentUserName: currentUser.displayName ?? otherUserName,
+          isVideoCall: false,
+        ),
+      ),
+    );
+  }
+
+  void _startVideoCall(BuildContext context) {
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      _showAuthError(context);
+      return;
+    }
+
+    final callID = CallService.generateCallId(currentUser.uid, otherUserId);
+    
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => CallPage(
+          callID: callID,
+          currentUserId: currentUser.uid,
+          currentUserName: currentUser.displayName ?? otherUserName,
+          isVideoCall: true,
+        ),
+      ),
+    );
+  }
+
+  void _showAuthError(BuildContext context) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('You must be logged in to make calls'),
+        backgroundColor: Colors.red,
+      ),
     );
   }
 

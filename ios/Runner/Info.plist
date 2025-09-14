@@ -45,5 +45,12 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	
+	<!-- Permissions for ZegoCloud UIKit -->
+	<key>NSCameraUsageDescription</key>
+	<string>This app needs access to camera for video calls</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>This app needs access to microphone for voice and video calls</string>
+	
 </dict>
 </plist>

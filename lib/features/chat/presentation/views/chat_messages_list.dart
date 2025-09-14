@@ -111,7 +111,7 @@ class ChatMessagesList extends StatelessWidget {
           ),
           child: ListView.builder(
             controller: scrollController,
-            padding: const EdgeInsets.fromLTRB(16, 110, 16, 8),
+            padding: const EdgeInsets.fromLTRB(16, 140, 16, 8),
             itemCount: messages.length,
             itemBuilder: (context, index) {
               final messageDoc = messages[index];
