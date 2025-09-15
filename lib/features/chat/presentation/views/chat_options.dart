@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/utils/assets.dart';
 import '../../../../core/utils/constants.dart';
 
@@ -19,6 +18,7 @@ class ChatOptionsBottomSheet extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    print('ChatOptionsBottomSheet build called');
     return Container(
       margin: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -61,7 +61,7 @@ class ChatOptionsBottomSheet extends StatelessWidget {
                     style: TextStyle(color: Colors.white),
                   ),
                   onTap: () {
-                    context.pop();
+                    Navigator.of(context).pop();
                     onBackgroundChange();
                   },
                 ),
@@ -72,7 +72,7 @@ class ChatOptionsBottomSheet extends StatelessWidget {
                     style: TextStyle(color: Colors.white),
                   ),
                   onTap: () {
-                    context.pop();
+                    Navigator.of(context).pop();
                     onChatBoxChange();
                   },
                 ),
@@ -82,7 +82,9 @@ class ChatOptionsBottomSheet extends StatelessWidget {
                     'Delete Chat',
                     style: TextStyle(color: Colors.white),
                   ),
-                  onTap: onDeleteChat,
+                  onTap: () {
+                    onDeleteChat();
+                  },
                 ),
                 const SizedBox(height: 8),
               ],
@@ -114,7 +116,7 @@ class BackgroundOptionsDialog extends StatelessWidget {
           InkWell(
             onTap: () {
               onBackgroundSelected(AppAssets.chatBg1);
-              context.pop();
+              Navigator.of(context).pop();
             },
             child: Container(
               height: 100,
@@ -147,7 +149,7 @@ class BackgroundOptionsDialog extends StatelessWidget {
           InkWell(
             onTap: () {
               onBackgroundSelected(AppAssets.chatBg2);
-              context.pop();
+              Navigator.of(context).pop();
             },
             child: Container(
               height: 100,
@@ -180,7 +182,7 @@ class BackgroundOptionsDialog extends StatelessWidget {
       ),
       actions: [
         TextButton(
-          onPressed: () => context.pop(),
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Cancel'),
         ),
       ],
@@ -232,7 +234,7 @@ class ChatBoxOptionsDialog extends StatelessWidget {
     return InkWell(
       onTap: () {
         onColorSelected(color);
-        context.pop();
+        Navigator.of(context).pop();
       },
       child: Container(
         width: 50,

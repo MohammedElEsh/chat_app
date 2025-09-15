@@ -1,6 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:go_router/go_router.dart';
 import '../../../../core/utils/assets.dart';
 import '../../../../core/utils/constants.dart';
 import '../../data/services/chat_service.dart';
@@ -92,24 +90,24 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: AssetImage(_currentBackground),
-          fit: BoxFit.cover,
-        ),
+    return Scaffold(
+      backgroundColor: Colors.transparent,
+      extendBodyBehindAppBar: false, // Changed to false to avoid overlap issues
+      resizeToAvoidBottomInset: false,
+      appBar: ChatAppBar(
+        otherUserId: widget.otherUserId,
+        otherUserName: widget.otherUserName,
+        otherUserPhotoURL: widget.otherUserPhotoURL,
+        onOptionsPressed: _showChatOptions,
       ),
-      child: Scaffold(
-        backgroundColor: Colors.transparent,
-        extendBodyBehindAppBar: true,
-        resizeToAvoidBottomInset: false,
-        appBar: ChatAppBar(
-          otherUserId: widget.otherUserId,
-          otherUserName: widget.otherUserName,
-          otherUserPhotoURL: widget.otherUserPhotoURL,
-          onOptionsPressed: _showChatOptions,
+      body: Container(
+        decoration: BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(_currentBackground),
+            fit: BoxFit.cover,
+          ),
         ),
-        body: Column(
+        child: Column(
           children: [
             // Messages list
             Expanded(
@@ -134,19 +132,42 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showChatOptions() {
-    showModalBottomSheet(
+    // Debug print to verify the method is being called
+    print('_showChatOptions called');
+    
+    // Check if context is still mounted
+    if (!mounted) {
+      print('Context not mounted, cannot show options');
+      return;
+    }
+    
+    showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => ChatOptionsBottomSheet(
-        otherUserName: widget.otherUserName,
-        onBackgroundChange: () => _showBackgroundOptions(),
-        onChatBoxChange: () => _showChatBoxOptions(),
-        onDeleteChat: () {
-          context.pop();
-          // TODO: Delete chat functionality
-        },
-      ),
-    );
+      isScrollControlled: true,
+      enableDrag: true,
+      isDismissible: true,
+      builder: (BuildContext context) {
+        print('Building ChatOptionsBottomSheet');
+        return ChatOptionsBottomSheet(
+          otherUserName: widget.otherUserName,
+          onBackgroundChange: () {
+            // Navigator.of(context).pop(); // Close the bottom sheet first
+            _showBackgroundOptions();
+          },
+          onChatBoxChange: () {
+            // Navigator.of(context).pop(); // Close the bottom sheet first
+            _showChatBoxOptions();
+          },
+          onDeleteChat: () {
+            Navigator.of(context).pop();
+            // TODO: Delete chat functionality
+          },
+        );
+      },
+    ).catchError((error) {
+      print('Error showing chat options: $error');
+    });
   }
 
   void _showBackgroundOptions() {

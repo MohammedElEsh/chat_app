@@ -140,7 +140,16 @@ class ChatAppBar extends StatelessWidget implements PreferredSizeWidget {
         ),
         IconButton(
           icon: const Icon(Icons.more_vert, color: Colors.white),
-          onPressed: onOptionsPressed,
+          onPressed: () {
+            print('Options button pressed in ChatAppBar');
+            onOptionsPressed();
+          },
+          tooltip: 'Chat options',
+          padding: const EdgeInsets.all(8.0),
+          constraints: const BoxConstraints(
+            minWidth: 48,
+            minHeight: 48,
+          ),
         ),
       ],
     );
