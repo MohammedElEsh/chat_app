@@ -33,9 +33,14 @@ final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
+  
+  // Initialize Supabase - مؤقتاً مُعطل لحين إضافة البيانات الصحيحة
+  // await SupabaseConfig.initialize();
   
   // Initialize services
   ConnectivityService.instance.initialize();

@@ -22,6 +22,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   ) : super(const ChatInitial()) {
     on<ChatStarted>(_onChatStarted);
     on<ChatMessageSent>(_onChatMessageSent);
+    on<ChatImageSent>(_onChatImageSent);
     on<ChatMessagesReceived>(_onChatMessagesReceived);
     on<ChatHistoryRequested>(_onChatHistoryRequested);
     on<ChatErrorOccurred>(_onChatErrorOccurred);
@@ -59,6 +60,33 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final result = await _sendMessage(
         content: event.content,
         type: event.type,
+        imageUrl: event.imageUrl,
+      );
+
+      result.fold(
+        (failure) {
+          emit(currentState.copyWith(isSendingMessage: false));
+          add(ChatErrorOccurred(failure.message));
+        },
+        (_) {
+          emit(currentState.copyWith(isSendingMessage: false));
+          // Message will be received through the stream
+        },
+      );
+    }
+  }
+
+  Future<void> _onChatImageSent(
+    ChatImageSent event,
+    Emitter<ChatState> emit,
+  ) async {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      emit(currentState.copyWith(isSendingMessage: true));
+
+      final result = await _sendMessage(
+        content: '', // محتوى فارغ للصورة
+        type: MessageType.image,
         imageUrl: event.imageUrl,
       );
 

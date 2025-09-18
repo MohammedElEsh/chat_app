@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/utils/constants.dart';
+import '../../domain/entities/message_entity.dart';
 
 class MessageBubble extends StatelessWidget {
   final String text;
@@ -9,6 +10,8 @@ class MessageBubble extends StatelessWidget {
   final Timestamp? timestamp;
   final String otherUserName;
   final Color chatBubbleColor;
+  final MessageType messageType;
+  final String? imageUrl;
 
   const MessageBubble({
     super.key,
@@ -17,6 +20,8 @@ class MessageBubble extends StatelessWidget {
     required this.timestamp,
     required this.otherUserName,
     required this.chatBubbleColor,
+    this.messageType = MessageType.text,
+    this.imageUrl,
   });
 
   @override
@@ -76,13 +81,7 @@ class MessageBubble extends StatelessWidget {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      text,
-                      style: TextStyle(
-                        color: isCurrentUser ? Colors.white : Colors.black87,
-                        fontSize: 16,
-                      ),
-                    ),
+                    _buildMessageContent(),
                     if (timestamp != null) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -110,6 +109,121 @@ class MessageBubble extends StatelessWidget {
           ],
         ],
       ),
+    );
+  }
+
+  Widget _buildMessageContent() {
+    switch (messageType) {
+      case MessageType.image:
+        return _buildImageContent();
+      case MessageType.voice:
+        return _buildVoiceContent();
+      case MessageType.text:
+      return _buildTextContent();
+    }
+  }
+
+  Widget _buildTextContent() {
+    return Text(
+      text,
+      style: TextStyle(
+        color: isCurrentUser ? Colors.white : Colors.black87,
+        fontSize: 16,
+      ),
+    );
+  }
+
+  Widget _buildImageContent() {
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _buildTextContent(); // Fallback to text if no image
+    }
+
+    return Column(
+      crossAxisAlignment: isCurrentUser
+          ? CrossAxisAlignment.end
+          : CrossAxisAlignment.start,
+      children: [
+        ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: Image.network(
+            imageUrl!,
+            width: 200,
+            height: 200,
+            fit: BoxFit.cover,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isCurrentUser ? Colors.white : AppColors.primary,
+                    ),
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) {
+              return Container(
+                width: 200,
+                height: 200,
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.error, color: Colors.red, size: 32),
+                    SizedBox(height: 8),
+                    Text(
+                      'Failed to load image',
+                      style: TextStyle(color: Colors.red, fontSize: 12),
+                      textAlign: TextAlign.center,
+                    ),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+        if (text.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildTextContent(),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildVoiceContent() {
+    // سيتم تطويره لاحقاً في الخطوة التالية
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.mic,
+          color: isCurrentUser ? Colors.white : Colors.black87,
+          size: 20,
+        ),
+        const SizedBox(width: 8),
+        Text(
+          'Voice message',
+          style: TextStyle(
+            color: isCurrentUser ? Colors.white : Colors.black87,
+            fontSize: 16,
+            fontStyle: FontStyle.italic,
+          ),
+        ),
+      ],
     );
   }
 
