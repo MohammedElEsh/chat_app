@@ -35,8 +35,9 @@ dependencies:
   # Media
   image_picker: ^1.2.0
   flutter_image_compress: ^2.4.0
-  record: ^6.1.1
+  record: ^5.0.4
   voice_message_package: ^2.2.1
+  just_audio: ^0.9.36
 
   # Permissions & Storage
   permission_handler: ^12.0.1
@@ -57,7 +58,9 @@ dependencies:
   cupertino_icons: ^1.0.8
 
 dependency_overrides:
-  just_audio: ^0.10.4   # ✅ لتوحيد النسخة بين Zego & Voice package
+  just_audio: ^0.9.36   # ✅ لتوحيد النسخة بين Zego & Voice package
+  permission_handler: ^12.0.1
+  record_linux: 1.2.1  # Use newer version that has required method
 
 dev_dependencies:
   flutter_test:

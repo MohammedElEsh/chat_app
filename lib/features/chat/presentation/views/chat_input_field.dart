@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import '../../../../core/utils/constants.dart';
 import '../../data/services/upload_service.dart';
+import '../../data/services/voice_upload_service.dart';
 
-class ChatInputField extends StatelessWidget {
+class ChatInputField extends StatefulWidget {
   final TextEditingController messageController;
   final bool isSending;
   final VoidCallback onSendPressed;
   final Function(String)? onImageSent;
+  final Function(String)? onVoiceSent;
 
   const ChatInputField({
     super.key,
@@ -14,7 +16,39 @@ class ChatInputField extends StatelessWidget {
     required this.isSending,
     required this.onSendPressed,
     this.onImageSent,
+    this.onVoiceSent,
   });
+  
+  @override
+  State<ChatInputField> createState() => _ChatInputFieldState();
+}
+
+class _ChatInputFieldState extends State<ChatInputField> with TickerProviderStateMixin {
+  bool _isRecording = false;
+  late AnimationController _recordingAnimationController;
+  late Animation<double> _recordingAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _recordingAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _recordingAnimation = Tween<double>(
+      begin: 0.3,
+      end: 1.0,
+    ).animate(CurvedAnimation(
+      parent: _recordingAnimationController,
+      curve: Curves.easeInOut,
+    ));
+  }
+
+  @override
+  void dispose() {
+    _recordingAnimationController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -69,7 +103,7 @@ class ChatInputField extends StatelessWidget {
                       borderRadius: BorderRadius.circular(25),
                     ),
                     child: TextField(
-                      controller: messageController,
+                    controller: widget.messageController,
                       decoration: InputDecoration(
                         hintText: 'Type a message...',
                         hintStyle: TextStyle(
@@ -89,27 +123,38 @@ class ChatInputField extends StatelessWidget {
                       maxLines: 3,
                       minLines: 1,
                       textCapitalization: TextCapitalization.sentences,
-                      onSubmitted: (_) => onSendPressed(),
+                      onSubmitted: (_) => widget.onSendPressed(),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Microphone icon
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.mic,
-                      color: Colors.white,
-                      size: 24,
-                    ),
-                    onPressed: () {
-                      // TODO: Implement voice recording
+                // Microphone icon (Recording)
+                GestureDetector(
+                  onTap: _handleMicrophoneTap,
+                  child: AnimatedBuilder(
+                    animation: _recordingAnimation,
+                    builder: (context, child) {
+                      return Container(
+                        height: 48,
+                        width: 48,
+                        decoration: BoxDecoration(
+                          color: _isRecording 
+                              ? Colors.red.withOpacity(_recordingAnimation.value * 0.8)
+                              : Colors.white.withOpacity(0.2),
+                          shape: BoxShape.circle,
+                          border: _isRecording
+                              ? Border.all(
+                                  color: Colors.red.withOpacity(_recordingAnimation.value),
+                                  width: 2,
+                                )
+                              : null,
+                        ),
+                        child: Icon(
+                          _isRecording ? Icons.stop : Icons.mic,
+                          color: _isRecording ? Colors.white : Colors.white,
+                          size: 24,
+                        ),
+                      );
                     },
                   ),
                 ),
@@ -123,7 +168,7 @@ class ChatInputField extends StatelessWidget {
                     borderRadius: BorderRadius.circular(24),
                   ),
                   child: IconButton(
-                    icon: isSending
+                    icon: widget.isSending
                         ? SizedBox(
                       width: 20,
                       height: 20,
@@ -139,7 +184,7 @@ class ChatInputField extends StatelessWidget {
                       color: AppColors.primary,
                       size: 24,
                     ),
-                    onPressed: isSending ? null : onSendPressed,
+                    onPressed: widget.isSending ? null : widget.onSendPressed,
                   ),
                 ),
               ],
@@ -151,7 +196,7 @@ class ChatInputField extends StatelessWidget {
   }
 
   Future<void> _showImageSourceDialog(BuildContext context) async {
-    if (onImageSent == null) return;
+    if (widget.onImageSent == null) return;
 
     showModalBottomSheet<void>(
       context: context,
@@ -255,7 +300,7 @@ class ChatInputField extends StatelessWidget {
   Future<void> _handleCameraUpload(BuildContext context) async {
     Navigator.pop(context); // إغلاق الحوار
     
-    if (onImageSent == null) return;
+    if (widget.onImageSent == null) return;
 
     try {
       // إظهار loading indicator
@@ -279,15 +324,15 @@ class ChatInputField extends StatelessWidget {
       }
 
       if (imageUrl != null) {
-        onImageSent!(imageUrl);
+        widget.onImageSent!(imageUrl);
       } else {
-        _showErrorSnackBar(context, 'فشل في رفع الصورة');
+        _showErrorSnackBar('فشل في رفع الصورة');
       }
     } catch (e) {
       // إغلاق loading
       if (context.mounted) {
         Navigator.pop(context);
-        _showErrorSnackBar(context, 'خطأ: $e');
+        _showErrorSnackBar('خطأ: $e');
       }
     }
   }
@@ -295,7 +340,7 @@ class ChatInputField extends StatelessWidget {
   Future<void> _handleGalleryUpload(BuildContext context) async {
     Navigator.pop(context); // إغلاق الحوار
     
-    if (onImageSent == null) return;
+    if (widget.onImageSent == null) return;
 
     try {
       // إظهار loading indicator
@@ -318,20 +363,98 @@ class ChatInputField extends StatelessWidget {
       }
 
       if (imageUrl != null) {
-        onImageSent!(imageUrl);
+        widget.onImageSent!(imageUrl);
       } else {
-        _showErrorSnackBar(context, 'فشل في رفع الصورة');
+        _showErrorSnackBar('فشل في رفع الصورة');
       }
     } catch (e) {
       // إغلاق loading
       if (context.mounted) {
         Navigator.pop(context);
-        _showErrorSnackBar(context, 'خطأ: $e');
+        _showErrorSnackBar('خطأ: $e');
       }
     }
   }
 
-  void _showErrorSnackBar(BuildContext context, String message) {
+  /// معالجة ضغط زر الميكروفون
+  Future<void> _handleMicrophoneTap() async {
+    if (widget.onVoiceSent == null) return;
+
+    if (!_isRecording) {
+      // بدء التسجيل
+      await _startRecording();
+    } else {
+      // إيقاف التسجيل ورفع الملف
+      await _stopRecordingAndUpload();
+    }
+  }
+
+  /// بدء التسجيل
+  Future<void> _startRecording() async {
+    try {
+      final started = await VoiceUploadService.startRecording();
+      if (started) {
+        setState(() {
+          _isRecording = true;
+        });
+        _recordingAnimationController.repeat(reverse: true);
+      } else {
+        _showErrorSnackBar('فشل في بدء التسجيل');
+      }
+    } catch (e) {
+      _showErrorSnackBar('خطأ في بدء التسجيل: $e');
+    }
+  }
+
+  /// إيقاف التسجيل ورفع الملف
+  Future<void> _stopRecordingAndUpload() async {
+    try {
+      // إظهار loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      final voiceUrl = await VoiceUploadService.stopRecordingAndUpload(
+        chatId: 'default_chat', // TODO: Get actual chatId from parent
+      );
+
+      // إغلاق loading
+      if (mounted) {
+        Navigator.pop(context);
+      }
+
+      // تحديث الحالة
+      setState(() {
+        _isRecording = false;
+      });
+      _recordingAnimationController.reset();
+
+      if (voiceUrl != null && voiceUrl.isNotEmpty) {
+        widget.onVoiceSent!(voiceUrl);
+      } else {
+        _showErrorSnackBar('فشل في رفع التسجيل الصوتي');
+      }
+    } catch (e) {
+      // إغلاق loading
+      if (mounted) {
+        Navigator.pop(context);
+      }
+      
+      // تحديث الحالة
+      setState(() {
+        _isRecording = false;
+      });
+      _recordingAnimationController.reset();
+      
+      _showErrorSnackBar('خطأ في رفع التسجيل: $e');
+    }
+  }
+
+  void _showErrorSnackBar(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),

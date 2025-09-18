@@ -23,6 +23,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     on<ChatStarted>(_onChatStarted);
     on<ChatMessageSent>(_onChatMessageSent);
     on<ChatImageSent>(_onChatImageSent);
+    on<ChatVoiceSent>(_onChatVoiceSent);
     on<ChatMessagesReceived>(_onChatMessagesReceived);
     on<ChatHistoryRequested>(_onChatHistoryRequested);
     on<ChatErrorOccurred>(_onChatErrorOccurred);
@@ -88,6 +89,33 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         content: '', // محتوى فارغ للصورة
         type: MessageType.image,
         imageUrl: event.imageUrl,
+      );
+
+      result.fold(
+        (failure) {
+          emit(currentState.copyWith(isSendingMessage: false));
+          add(ChatErrorOccurred(failure.message));
+        },
+        (_) {
+          emit(currentState.copyWith(isSendingMessage: false));
+          // Message will be received through the stream
+        },
+      );
+    }
+  }
+
+  Future<void> _onChatVoiceSent(
+    ChatVoiceSent event,
+    Emitter<ChatState> emit,
+  ) async {
+    if (state is ChatLoaded) {
+      final currentState = state as ChatLoaded;
+      emit(currentState.copyWith(isSendingMessage: true));
+
+      final result = await _sendMessage(
+        content: '', // محتوى فارغ للرسالة الصوتية
+        type: MessageType.voice,
+        imageUrl: event.voiceUrl, // نستخدم imageUrl لحفظ رابط الصوت مؤقتاً
       );
 
       result.fold(

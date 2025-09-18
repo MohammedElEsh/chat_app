@@ -59,6 +59,19 @@ class ChatImageSent extends ChatEvent {
   List<Object> get props => [imageUrl, chatId];
 }
 
+class ChatVoiceSent extends ChatEvent {
+  final String voiceUrl;
+  final String chatId;
+
+  const ChatVoiceSent({
+    required this.voiceUrl,
+    required this.chatId,
+  });
+
+  @override
+  List<Object> get props => [voiceUrl, chatId];
+}
+
 class ChatHistoryRequested extends ChatEvent {
   final int limit;
   final String? lastMessageId;

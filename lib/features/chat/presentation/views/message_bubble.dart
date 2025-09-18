@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/utils/constants.dart';
 import '../../domain/entities/message_entity.dart';
+import '../widgets/voice_message_player.dart';
 
 class MessageBubble extends StatelessWidget {
   final String text;
@@ -205,21 +206,34 @@ class MessageBubble extends StatelessWidget {
   }
 
   Widget _buildVoiceContent() {
-    // سيتم تطويره لاحقاً في الخطوة التالية
+    if (imageUrl == null || imageUrl!.isEmpty) {
+      return _buildErrorVoiceContent();
+    }
+
+    return VoiceMessagePlayer(
+      voiceUrl: imageUrl!, // نستخدم imageUrl لحفظ رابط الصوت
+      isCurrentUser: isCurrentUser,
+      onPlayStateChanged: () {
+        // يمكن إضافة callbacks هنا لاحقاً
+      },
+    );
+  }
+  
+  Widget _buildErrorVoiceContent() {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          Icons.mic,
-          color: isCurrentUser ? Colors.white : Colors.black87,
+          Icons.error,
+          color: isCurrentUser ? Colors.white70 : Colors.red,
           size: 20,
         ),
         const SizedBox(width: 8),
         Text(
-          'Voice message',
+          'خطأ في تحميل الرسالة الصوتية',
           style: TextStyle(
-            color: isCurrentUser ? Colors.white : Colors.black87,
-            fontSize: 16,
+            color: isCurrentUser ? Colors.white70 : Colors.red,
+            fontSize: 14,
             fontStyle: FontStyle.italic,
           ),
         ),
