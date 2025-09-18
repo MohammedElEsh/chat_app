@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
 import '../../../../core/utils/assets.dart';
 import '../../../../core/utils/constants.dart';
-import '../../data/services/chat_service.dart';
+import '../bloc/chat_bloc.dart';
+import '../bloc/chat_event.dart';
+import '../../domain/entities/message_entity.dart';
 import '../views/chat_app_bar.dart';
 import '../views/chat_input_field.dart';
 import '../views/chat_messages_list.dart';
@@ -29,6 +33,12 @@ class ChatScreen extends StatefulWidget {
 }
 
 class _ChatScreenState extends State<ChatScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // ✅ تفعيل LoadMessages في initState
+    context.read<ChatBloc>().add(LoadMessages(widget.chatId));
+  }
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
@@ -50,42 +60,28 @@ class _ChatScreenState extends State<ChatScreen> {
       _isSending = true;
     });
 
-    try {
-      await ChatService.sendMessage(
-        chatId: widget.chatId,
-        senderId: widget.currentUserId,
-        receiverId: widget.otherUserId,
-        text: text,
-      );
+    // ✅ استخدام ChatBloc بدلاً من ChatService
+    context.read<ChatBloc>().add(ChatMessageSent(
+      content: text,
+      type: MessageType.text,
+    ));
 
-      _messageController.clear();
+    _messageController.clear();
+    
+    setState(() {
+      _isSending = false;
+    });
 
-      // Scroll to bottom after sending message
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 300),
-            curve: Curves.easeOut,
-          );
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Failed to send message: $e'),
-            backgroundColor: Colors.red,
-          ),
+    // Scroll to bottom after sending message
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isSending = false;
-        });
-      }
-    }
+    });
   }
 
   @override
@@ -112,11 +108,7 @@ class _ChatScreenState extends State<ChatScreen> {
             // Messages list
             Expanded(
               child: ChatMessagesList(
-                chatId: widget.chatId,
-                currentUserId: widget.currentUserId,
                 scrollController: _scrollController,
-                otherUserName: widget.otherUserName,
-                chatBubbleColor: _chatBubbleColor,
               ),
             ),
             // Message input

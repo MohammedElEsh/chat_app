@@ -11,6 +11,7 @@ class MessageModel extends MessageEntity {
     required super.createdAt,
     super.type = MessageType.text,
     super.imageUrl,
+    super.voiceUrl,
     super.isRead = false,
   });
 
@@ -25,6 +26,7 @@ class MessageModel extends MessageEntity {
       createdAt: (data['createdAt'] as Timestamp).toDate(),
       type: _getMessageTypeFromString(data['type'] ?? 'text'),
       imageUrl: data['imageUrl'],
+      voiceUrl: data['voiceUrl'],
       isRead: data['isRead'] ?? false,
     );
   }
@@ -38,6 +40,7 @@ class MessageModel extends MessageEntity {
       'createdAt': Timestamp.fromDate(createdAt),
       'type': type.name,
       'imageUrl': imageUrl,
+      'voiceUrl': voiceUrl,
       'isRead': isRead,
     };
   }
@@ -52,6 +55,7 @@ class MessageModel extends MessageEntity {
       createdAt: entity.createdAt,
       type: entity.type,
       imageUrl: entity.imageUrl,
+      voiceUrl: entity.voiceUrl,
       isRead: entity.isRead,
     );
   }
@@ -66,6 +70,7 @@ class MessageModel extends MessageEntity {
       createdAt: createdAt,
       type: type,
       imageUrl: imageUrl,
+      voiceUrl: voiceUrl,
       isRead: isRead,
     );
   }

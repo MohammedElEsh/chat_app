@@ -9,6 +9,7 @@ class MessageEntity extends Equatable {
   final DateTime createdAt;
   final MessageType type;
   final String? imageUrl;
+  final String? voiceUrl;   // ✅ جديد للرسائل الصوتية
   final bool isRead;
 
   const MessageEntity({
@@ -20,6 +21,7 @@ class MessageEntity extends Equatable {
     required this.createdAt,
     this.type = MessageType.text,
     this.imageUrl,
+    this.voiceUrl,
     this.isRead = false,
   });
 
@@ -32,6 +34,7 @@ class MessageEntity extends Equatable {
     DateTime? createdAt,
     MessageType? type,
     String? imageUrl,
+    String? voiceUrl,
     bool? isRead,
   }) {
     return MessageEntity(
@@ -43,6 +46,7 @@ class MessageEntity extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       type: type ?? this.type,
       imageUrl: imageUrl ?? this.imageUrl,
+      voiceUrl: voiceUrl ?? this.voiceUrl,
       isRead: isRead ?? this.isRead,
     );
   }
@@ -57,6 +61,7 @@ class MessageEntity extends Equatable {
         createdAt,
         type,
         imageUrl,
+        voiceUrl,
         isRead,
       ];
 }

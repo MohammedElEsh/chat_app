@@ -22,6 +22,7 @@ import 'features/chat/data/datasources/firebase_chats_datasource.dart';
 import 'features/chat/domain/usecases/send_message.dart';
 import 'features/chat/domain/usecases/get_messages.dart';
 import 'features/chat/domain/usecases/get_message_history.dart';
+import 'features/chat/domain/usecases/get_messages_stream.dart';
 import 'features/chat/presentation/bloc/chat_bloc.dart';
 import 'features/home/domain/usecases/get_chats_for_user.dart' as home_use_cases;
 import 'features/call/services/call_invitation_service.dart';
@@ -87,11 +88,13 @@ class App extends StatelessWidget {
     final sendMessage = SendMessage(chatRepository);
     final getMessages = GetMessages(chatRepository);
     final getMessageHistory = GetMessageHistory(chatRepository);
+    final getMessagesStream = GetMessagesStream(chatRepository);
     
     final chatBloc = ChatBloc(
       sendMessage,
       getMessages,
       getMessageHistory,
+      getMessagesStream,
     );
 
     // Chats (Home) dependencies

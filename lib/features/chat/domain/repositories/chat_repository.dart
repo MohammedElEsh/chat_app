@@ -8,9 +8,14 @@ abstract class ChatRepository {
     required String content,
     required MessageType type,
     String? imageUrl,
+    String? voiceUrl,  // ✅ جديد للرسائل الصوتية
+    String? chatId,  // ✅ جديد
   });
 
   Stream<Either<Failure, List<MessageEntity>>> getMessages();
+
+  // ✅ جديد للحصول على رسائل محادثة محددة في الوقت الفعلي
+  Stream<Either<Failure, List<MessageEntity>>> getMessagesStream(String chatId);
 
   Future<Either<Failure, void>> markMessageAsRead(String messageId);
 

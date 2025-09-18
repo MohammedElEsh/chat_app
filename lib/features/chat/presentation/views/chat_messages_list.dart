@@ -1,30 +1,23 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../../data/services/chat_service.dart';
-import 'message_bubble.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../bloc/chat_bloc.dart';
+import '../bloc/chat_state.dart';
+import '../widgets/message_bubble.dart';
 
 class ChatMessagesList extends StatelessWidget {
-  final String chatId;
-  final String currentUserId;
   final ScrollController scrollController;
-  final String otherUserName;
-  final Color chatBubbleColor;
 
   const ChatMessagesList({
     super.key,
-    required this.chatId,
-    required this.currentUserId,
     required this.scrollController,
-    required this.otherUserName,
-    required this.chatBubbleColor,
   });
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: ChatService.getChatMessages(chatId),
-      builder: (context, snapshot) {
-        if (snapshot.hasError) {
+    return BlocBuilder<ChatBloc, ChatState>(
+      builder: (context, state) {
+        if (state is ChatError) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -43,16 +36,24 @@ class ChatMessagesList extends StatelessWidget {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                const SizedBox(height: 8),
+                Text(
+                  state.message,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey.shade500,
+                  ),
+                ),
               ],
             ),
           );
         }
 
-        if (snapshot.connectionState == ConnectionState.waiting) {
+        if (state is ChatLoading) {
           return const Center(child: CircularProgressIndicator());
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (state is! ChatLoaded || state.messages.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -85,7 +86,7 @@ class ChatMessagesList extends StatelessWidget {
           );
         }
 
-        final messages = snapshot.data!.docs;
+        final messages = state.messages;
 
         // Auto-scroll to bottom when new messages arrive
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -112,23 +113,13 @@ class ChatMessagesList extends StatelessWidget {
           child: ListView.builder(
             controller: scrollController,
             padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+            reverse: true, // ✅ عرض أحدث رسالة في الأسفل
             itemCount: messages.length,
             itemBuilder: (context, index) {
-              final messageDoc = messages[index];
-              final messageData = messageDoc.data() as Map<String, dynamic>;
-
-              final text = messageData['text'] ?? '';
-              final senderId = messageData['senderId'] ?? '';
-              final timestamp = messageData['timestamp'] as Timestamp?;
-
-              final isCurrentUser = senderId == currentUserId;
-
+              final message = messages[messages.length - 1 - index]; // عكس الترتيب
+              
               return MessageBubble(
-                text: text,
-                isCurrentUser: isCurrentUser,
-                timestamp: timestamp,
-                otherUserName: otherUserName,
-                chatBubbleColor: chatBubbleColor,
+                message: message,
               );
             },
           ),

@@ -13,19 +13,31 @@ class ChatStarted extends ChatEvent {
   const ChatStarted();
 }
 
+// ✅ جديد لتحميل رسائل محادثة محددة
+class LoadMessages extends ChatEvent {
+  final String chatId;
+  
+  const LoadMessages(this.chatId);
+  
+  @override
+  List<Object> get props => [chatId];
+}
+
 class ChatMessageSent extends ChatEvent {
   final String content;
   final MessageType type;
   final String? imageUrl;
+  final String? voiceUrl;  // ✅ جديد
 
   const ChatMessageSent({
     required this.content,
     required this.type,
     this.imageUrl,
+    this.voiceUrl,
   });
 
   @override
-  List<Object?> get props => [content, type, imageUrl];
+  List<Object?> get props => [content, type, imageUrl, voiceUrl];
 }
 
 class ChatMessagesReceived extends ChatEvent {

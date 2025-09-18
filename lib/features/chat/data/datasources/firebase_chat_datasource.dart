@@ -9,9 +9,14 @@ abstract class FirebaseChatDataSource {
     required String content,
     required MessageType type,
     String? imageUrl,
+    String? voiceUrl,  // ✅ جديد
+    String? chatId,  // ✅ جديد لتحديد المحادثة
   });
 
   Stream<List<MessageModel>> getMessages();
+
+  // ✅ جديد للحصول على رسائل محادثة محددة
+  Stream<List<MessageModel>> getMessagesStream(String chatId);
 
   Future<void> markMessageAsRead(String messageId);
 
@@ -32,6 +37,8 @@ class FirebaseChatDataSourceImpl implements FirebaseChatDataSource {
     required String content,
     required MessageType type,
     String? imageUrl,
+    String? voiceUrl,  // ✅ جديد
+    String? chatId,  // ✅ جديد
   }) async {
     final user = _firebaseAuth.currentUser;
     if (user == null) {
@@ -47,15 +54,36 @@ class FirebaseChatDataSourceImpl implements FirebaseChatDataSource {
       createdAt: DateTime.now(),
       type: type,
       imageUrl: imageUrl,
+      voiceUrl: voiceUrl,
       isRead: false,
     );
 
-    await _firestore.collection('messages').add(messageModel.toFirestore());
+    // حفظ الرسالة في المحادثة المحددة أو في collection عام
+    final collection = chatId != null 
+        ? _firestore.collection('chats').doc(chatId).collection('messages')
+        : _firestore.collection('messages');
+    
+    await collection.add(messageModel.toFirestore());
   }
 
   @override
   Stream<List<MessageModel>> getMessages() {
     return _firestore
+        .collection('messages')
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs
+          .map((doc) => MessageModel.fromFirestore(doc))
+          .toList();
+    });
+  }
+
+  @override
+  Stream<List<MessageModel>> getMessagesStream(String chatId) {
+    return _firestore
+        .collection('chats')
+        .doc(chatId)
         .collection('messages')
         .orderBy('createdAt', descending: false)
         .snapshots()
