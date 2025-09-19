@@ -22,5 +22,6 @@ abstract class ChatRepository {
   Future<Either<Failure, List<MessageEntity>>> getMessageHistory({
     int limit = 50,
     String? lastMessageId,
+    String? chatId, // ✅ إضافة معامل chatId
   });
 }

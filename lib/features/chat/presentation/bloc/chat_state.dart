@@ -20,24 +20,28 @@ class ChatLoading extends ChatState {
 class ChatLoaded extends ChatState {
   final List<MessageEntity> messages;
   final bool isSendingMessage;
+  final String? chatId; // ✅ إضافة chatId
 
   const ChatLoaded({
     required this.messages,
     this.isSendingMessage = false,
+    this.chatId, // ✅ إضافة chatId
   });
 
   ChatLoaded copyWith({
     List<MessageEntity>? messages,
     bool? isSendingMessage,
+    String? chatId, // ✅ إضافة chatId
   }) {
     return ChatLoaded(
       messages: messages ?? this.messages,
       isSendingMessage: isSendingMessage ?? this.isSendingMessage,
+      chatId: chatId ?? this.chatId, // ✅ إضافة chatId
     );
   }
 
   @override
-  List<Object?> get props => [messages, isSendingMessage];
+  List<Object?> get props => [messages, isSendingMessage, chatId];
 }
 
 class ChatError extends ChatState {

@@ -54,6 +54,8 @@ class ChatService {
     required String senderId,
     required String receiverId,
     required String text,
+    String? senderName,
+    String? senderEmail,
   }) async {
     final batch = _firestore.batch();
 
@@ -65,10 +67,16 @@ class ChatService {
         .doc();
 
     batch.set(messageRef, {
-      'text': text,
+      'content': text, // استخدام content بدلاً من text
+      'text': text, // الاحتفاظ بـ text للتوافق مع الوراء
       'senderId': senderId,
+      'senderName': senderName ?? '',
+      'senderEmail': senderEmail ?? '',
       'receiverId': receiverId,
-      'timestamp': FieldValue.serverTimestamp(),
+      'createdAt': FieldValue.serverTimestamp(), // استخدام createdAt بدلاً من timestamp
+      'timestamp': FieldValue.serverTimestamp(), // الاحتفاظ بـ timestamp للتوافق مع الوراء
+      'type': 'text',
+      'isRead': false,
     });
 
     // Update chat document with last message info
@@ -96,7 +104,7 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        .orderBy('timestamp', descending: false) // Ascending for chronological order
+        .orderBy('createdAt', descending: false) // استخدام createdAt للتوافق مع MessageModel
         .snapshots();
   }
 

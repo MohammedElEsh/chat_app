@@ -87,14 +87,16 @@ class ChatVoiceSent extends ChatEvent {
 class ChatHistoryRequested extends ChatEvent {
   final int limit;
   final String? lastMessageId;
+  final String? chatId; // ✅ إضافة chatId
 
   const ChatHistoryRequested({
     this.limit = 50,
     this.lastMessageId,
+    this.chatId, // ✅ إضافة chatId
   });
 
   @override
-  List<Object?> get props => [limit, lastMessageId];
+  List<Object?> get props => [limit, lastMessageId, chatId];
 }
 
 class ChatErrorOccurred extends ChatEvent {

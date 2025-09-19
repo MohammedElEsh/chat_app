@@ -17,13 +17,18 @@ class MessageModel extends MessageEntity {
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
+    
+    // دعم كلاً من 'createdAt' و 'timestamp' للتوافق مع ChatService
+    Timestamp? timestamp = data['createdAt'] as Timestamp? ?? data['timestamp'] as Timestamp?;
+    DateTime createdAt = timestamp?.toDate() ?? DateTime.now();
+    
     return MessageModel(
       id: doc.id,
       senderId: data['senderId'] ?? '',
       senderName: data['senderName'] ?? '',
       senderEmail: data['senderEmail'] ?? '',
-      content: data['content'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
+      content: data['content'] ?? data['text'] ?? '', // دعم كلاً من 'content' و 'text'
+      createdAt: createdAt,
       type: _getMessageTypeFromString(data['type'] ?? 'text'),
       imageUrl: data['imageUrl'],
       voiceUrl: data['voiceUrl'],

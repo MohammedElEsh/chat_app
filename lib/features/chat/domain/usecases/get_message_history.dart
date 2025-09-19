@@ -12,10 +12,12 @@ class GetMessageHistory {
   Future<Either<Failure, List<MessageEntity>>> call({
     int limit = 50,
     String? lastMessageId,
+    String? chatId, // ✅ إضافة معامل chatId
   }) async {
     return await repository.getMessageHistory(
       limit: limit,
       lastMessageId: lastMessageId,
+      chatId: chatId, // ✅ تمرير chatId
     );
   }
 }

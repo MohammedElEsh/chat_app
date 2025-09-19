@@ -97,11 +97,13 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Either<Failure, List<MessageEntity>>> getMessageHistory({
     int limit = 50,
     String? lastMessageId,
+    String? chatId, // ✅ إضافة معامل chatId
   }) async {
     try {
       final messages = await dataSource.getMessageHistory(
         limit: limit,
         lastMessageId: lastMessageId,
+        chatId: chatId, // ✅ تمرير chatId
       );
       final entities = messages.map((model) => model.toEntity()).toList();
       return Right(entities);

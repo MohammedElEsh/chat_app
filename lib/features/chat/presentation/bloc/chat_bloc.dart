@@ -70,7 +70,10 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       onData: (result) {
         return result.fold(
           (failure) => ChatError(message: failure.message),
-          (messages) => ChatLoaded(messages: messages),
+          (messages) => ChatLoaded(
+            messages: messages, 
+            chatId: event.chatId, // ✅ حفظ chatId
+          ),
         );
       },
       onError: (error, stackTrace) {
@@ -92,6 +95,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         type: event.type,
         imageUrl: event.imageUrl,
         voiceUrl: event.voiceUrl,
+        chatId: currentState.chatId, // ✅ تمرير chatId
       );
 
       result.fold(
@@ -119,6 +123,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         content: '', // محتوى فارغ للصورة
         type: MessageType.image,
         imageUrl: event.imageUrl,
+        chatId: currentState.chatId, // ✅ تمرير chatId
       );
 
       result.fold(
@@ -146,6 +151,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         content: '', // محتوى فارغ للرسالة الصوتية
         type: MessageType.voice,
         voiceUrl: event.voiceUrl, // ✅ استخدام voiceUrl بدلاً من imageUrl
+        chatId: currentState.chatId, // ✅ تمرير chatId
       );
 
       result.fold(
@@ -165,7 +171,16 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ChatMessagesReceived event,
     Emitter<ChatState> emit,
   ) {
-    emit(ChatLoaded(messages: event.messages));
+    // الحفاظ على chatId من الحالة الحالية إن وجد
+    String? currentChatId;
+    if (state is ChatLoaded) {
+      currentChatId = (state as ChatLoaded).chatId;
+    }
+    
+    emit(ChatLoaded(
+      messages: event.messages,
+      chatId: currentChatId,
+    ));
   }
 
   Future<void> _onChatHistoryRequested(
@@ -178,6 +193,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final result = await _getMessageHistory(
         limit: event.limit,
         lastMessageId: event.lastMessageId,
+        chatId: event.chatId, // ✅ تمرير chatId
       );
 
       result.fold(
