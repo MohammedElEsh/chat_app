@@ -2,11 +2,13 @@ import 'package:flutter/material.dart';
 import '../../../../core/utils/assets.dart';
 import '../../../../core/utils/constants.dart';
 import '../../data/services/chat_service.dart';
+import '../../../camera/services/camera_service.dart';
+import '../../../voice/services/voice_service.dart';
 import '../views/chat_app_bar.dart';
+import '../../domain/entities/message_entity.dart';
 import '../views/chat_input_field.dart';
 import '../views/chat_messages_list.dart';
 import '../views/chat_options.dart';
-
 
 class ChatScreen extends StatefulWidget {
   final String chatId;
@@ -32,8 +34,11 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   bool _isSending = false;
+  bool _isRecording = false;
   String _currentBackground = AppAssets.chatBg1;
   Color _chatBubbleColor = AppColors.defaultOutgoingMessageBubble;
+  final CameraService _cameraService = CameraService();
+  final VoiceService _voiceService = VoiceService();
 
   @override
   void dispose() {
@@ -88,6 +93,43 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
+  void _sendImage() async {
+    if (_isSending) return;
+
+    setState(() {
+      _isSending = true;
+    });
+
+    try {
+      final imageUrl = await _cameraService.pickAndUploadImage();
+      if (imageUrl != null) {
+        await ChatService.sendMessage(
+          chatId: widget.chatId,
+          senderId: widget.currentUserId,
+          receiverId: widget.otherUserId,
+          text: 'Image', // Placeholder text
+          type: MessageType.image,
+          imageUrl: imageUrl,
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -123,7 +165,11 @@ class _ChatScreenState extends State<ChatScreen> {
             ChatInputField(
               messageController: _messageController,
               isSending: _isSending,
+              isRecording: _isRecording,
               onSendPressed: _sendMessage,
+              onCameraPressed: _sendImage,
+              onMicPressed: _handleVoiceRecording,
+              onMicReleased: _handleVoiceStop,
             ),
           ],
         ),
@@ -134,13 +180,13 @@ class _ChatScreenState extends State<ChatScreen> {
   void _showChatOptions() {
     // Debug print to verify the method is being called
     print('_showChatOptions called');
-    
+
     // Check if context is still mounted
     if (!mounted) {
       print('Context not mounted, cannot show options');
       return;
     }
-    
+
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
@@ -196,5 +242,77 @@ class _ChatScreenState extends State<ChatScreen> {
         },
       ),
     );
+  }
+
+  void _handleVoiceRecording() async {
+    if (_isSending || _isRecording) return;
+
+    try {
+      final started = await _voiceService.startRecording();
+      if (started) {
+        setState(() {
+          _isRecording = true;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to start recording: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  void _handleVoiceStop() async {
+    if (!_isRecording) return;
+
+    setState(() {
+      _isSending = true;
+      _isRecording = false;
+    });
+
+    try {
+      // Stop recording and get file path and duration
+      final recordingData = await _voiceService.stopRecording();
+      if (recordingData != null) {
+        final filePath = recordingData['path'] as String;
+        final duration = recordingData['duration'] as int;
+
+        // Upload to Supabase
+        final voiceData = await _voiceService.uploadVoiceToSupabase(
+          filePath,
+          duration,
+        );
+
+        // Send message to Firestore
+        await ChatService.sendMessage(
+          chatId: widget.chatId,
+          senderId: widget.currentUserId,
+          receiverId: widget.otherUserId,
+          text: 'Voice Message', // Placeholder text
+          type: MessageType.voice,
+          voiceUrl: voiceData['voiceUrl'],
+          duration: voiceData['duration'],
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to send voice message: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSending = false;
+        });
+      }
+    }
   }
 }

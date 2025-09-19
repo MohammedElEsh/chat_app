@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/utils/constants.dart';
+import '../../domain/entities/message_entity.dart';
+import 'voice_message_bubble.dart';
 
 class MessageBubble extends StatelessWidget {
   final String text;
@@ -9,6 +11,10 @@ class MessageBubble extends StatelessWidget {
   final Timestamp? timestamp;
   final String otherUserName;
   final Color chatBubbleColor;
+  final MessageType messageType;
+  final String? imageUrl;
+  final String? voiceUrl;
+  final int? voiceDuration;
 
   const MessageBubble({
     super.key,
@@ -17,6 +23,10 @@ class MessageBubble extends StatelessWidget {
     required this.timestamp,
     required this.otherUserName,
     required this.chatBubbleColor,
+    this.messageType = MessageType.text,
+    this.imageUrl,
+    this.voiceUrl,
+    this.voiceDuration,
   });
 
   @override
@@ -76,13 +86,67 @@ class MessageBubble extends StatelessWidget {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      text,
-                      style: TextStyle(
-                        color: isCurrentUser ? Colors.white : Colors.black87,
-                        fontSize: 16,
+                    if (messageType == MessageType.image && imageUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl!,
+                          width: maxBubbleWidth * 0.8, // Adjust image width
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return SizedBox(
+                              width: maxBubbleWidth * 0.8,
+                              height: maxBubbleWidth * 0.8,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isCurrentUser
+                                        ? Colors.white
+                                        : AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: maxBubbleWidth * 0.8,
+                                height: maxBubbleWidth * 0.8,
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.error,
+                                  color: Colors.red,
+                                ),
+                              ),
+                        ),
+                      )
+                    else if (messageType == MessageType.voice &&
+                        voiceUrl != null)
+                      VoiceMessageBubble(
+                        voiceUrl: voiceUrl!,
+                        duration: voiceDuration ?? 0,
+                        isCurrentUser: isCurrentUser,
+                        bubbleColor: isCurrentUser
+                            ? chatBubbleColor
+                            : AppColors.incomingMessageBubble,
+                        textColor: isCurrentUser
+                            ? Colors.white
+                            : Colors.black87,
+                      )
+                    else
+                      Text(
+                        text,
+                        style: TextStyle(
+                          color: isCurrentUser ? Colors.white : Colors.black87,
+                          fontSize: 16,
+                        ),
                       ),
-                    ),
                     if (timestamp != null) ...[
                       const SizedBox(height: 4),
                       Text(

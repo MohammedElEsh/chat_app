@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../data/services/chat_service.dart';
+import '../../domain/entities/message_entity.dart';
 import 'message_bubble.dart';
 
 class ChatMessagesList extends StatelessWidget {
@@ -75,10 +76,7 @@ class ChatMessagesList extends StatelessWidget {
                 Text(
                   'Send the first message to start the conversation',
                   textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
-                    fontSize: 14,
-                  ),
+                  style: TextStyle(color: Colors.grey.shade500, fontSize: 14),
                 ),
               ],
             ),
@@ -120,6 +118,13 @@ class ChatMessagesList extends StatelessWidget {
               final text = messageData['text'] ?? '';
               final senderId = messageData['senderId'] ?? '';
               final timestamp = messageData['timestamp'] as Timestamp?;
+              final messageType = MessageType.values.firstWhere(
+                (e) => e.name == (messageData['type'] ?? MessageType.text.name),
+                orElse: () => MessageType.text,
+              );
+              final imageUrl = messageData['imageUrl'] as String?;
+              final voiceUrl = messageData['voiceUrl'] as String?;
+              final voiceDuration = messageData['duration'] as int?;
 
               final isCurrentUser = senderId == currentUserId;
 
@@ -129,6 +134,10 @@ class ChatMessagesList extends StatelessWidget {
                 timestamp: timestamp,
                 otherUserName: otherUserName,
                 chatBubbleColor: chatBubbleColor,
+                messageType: messageType,
+                imageUrl: imageUrl,
+                voiceUrl: voiceUrl,
+                voiceDuration: voiceDuration,
               );
             },
           ),

@@ -4,13 +4,21 @@ import '../../../../core/utils/constants.dart';
 class ChatInputField extends StatelessWidget {
   final TextEditingController messageController;
   final bool isSending;
+  final bool isRecording;
   final VoidCallback onSendPressed;
+  final VoidCallback? onCameraPressed;
+  final VoidCallback? onMicPressed;
+  final VoidCallback? onMicReleased;
 
   const ChatInputField({
     super.key,
     required this.messageController,
     required this.isSending,
+    this.isRecording = false,
     required this.onSendPressed,
+    this.onCameraPressed,
+    this.onMicPressed,
+    this.onMicReleased,
   });
 
   @override
@@ -50,9 +58,7 @@ class ChatInputField extends StatelessWidget {
                       color: Colors.white,
                       size: 24,
                     ),
-                    onPressed: () {
-                      // TODO: Implement camera functionality
-                    },
+                    onPressed: onCameraPressed,
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -81,10 +87,7 @@ class ChatInputField extends StatelessWidget {
                           vertical: 14,
                         ),
                       ),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                      ),
+                      style: const TextStyle(color: Colors.white, fontSize: 16),
                       maxLines: 3,
                       minLines: 1,
                       textCapitalization: TextCapitalization.sentences,
@@ -94,22 +97,24 @@ class ChatInputField extends StatelessWidget {
                 ),
                 const SizedBox(width: 12),
                 // Microphone icon
-                Container(
-                  height: 48,
-                  width: 48,
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.mic,
-                      color: Colors.white,
+                GestureDetector(
+                  onTapDown: (_) => onMicPressed?.call(),
+                  onTapUp: (_) => onMicReleased?.call(),
+                  onTapCancel: () => onMicReleased?.call(),
+                  child: Container(
+                    height: 48,
+                    width: 48,
+                    decoration: BoxDecoration(
+                      color: isRecording
+                          ? AppColors.primary.withOpacity(0.7)
+                          : Colors.white.withOpacity(0.2),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      isRecording ? Icons.stop : Icons.mic,
+                      color: isRecording ? Colors.white : Colors.white,
                       size: 24,
                     ),
-                    onPressed: () {
-                      // TODO: Implement voice recording
-                    },
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -124,20 +129,16 @@ class ChatInputField extends StatelessWidget {
                   child: IconButton(
                     icon: isSending
                         ? SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          AppColors.primary,
-                        ),
-                      ),
-                    )
-                        : Icon(
-                      Icons.send,
-                      color: AppColors.primary,
-                      size: 24,
-                    ),
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                AppColors.primary,
+                              ),
+                            ),
+                          )
+                        : Icon(Icons.send, color: AppColors.primary, size: 24),
                     onPressed: isSending ? null : onSendPressed,
                   ),
                 ),

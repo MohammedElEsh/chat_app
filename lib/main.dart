@@ -4,10 +4,11 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'core/utils/constants.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
-import 'features/auth/presentation/bloc/auth_state.dart';
+import 'features/auth/presentation/bloc/auth_state.dart' as auth_state;
 import 'features/auth/presentation/pages/login_page.dart';
 import 'features/home/presentation/pages/home_page.dart';
 import 'features/auth/data/datasources/firebase_auth_datasource.dart';
@@ -35,6 +36,11 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await Supabase.initialize(
+    url: 'https://zjsbbcbrmyipkxlrknny.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inpqc2JiY2JybXlpcGt4bHJrbm55Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTc5NDI3OTcsImV4cCI6MjA3MzUxODc5N30.02je_GYZV44ZIb7BGSiAHdcA8AhmNSIVX0BXGS2thHo',
   );
   
   // Initialize services
@@ -130,13 +136,13 @@ class AuthGate extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocBuilder<AuthBloc, AuthState>(
+    return BlocBuilder<AuthBloc, auth_state.AuthState>(
       builder: (context, state) {
-        if (state is AuthLoading) {
+        if (state is auth_state.AuthLoading) {
           return const Scaffold(
             body: Center(child: CircularProgressIndicator()),
           );
-        } else if (state is AuthAuthenticated) {
+        } else if (state is auth_state.AuthAuthenticated) {
           return const HomePage();
         } else {
           return const LoginPage();

@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../auth/domain/entities/user_entity.dart';
+import '../../domain/entities/message_entity.dart';
 
 class ChatService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -22,8 +23,13 @@ class ChatService {
 
     if (!chatDoc.exists) {
       // Get current user data from users collection
-      final currentUserDoc = await _firestore.collection('users').doc(currentUserId).get();
-      final currentUserData = currentUserDoc.exists ? currentUserDoc.data()! : {};
+      final currentUserDoc = await _firestore
+          .collection('users')
+          .doc(currentUserId)
+          .get();
+      final currentUserData = currentUserDoc.exists
+          ? currentUserDoc.data()!
+          : {};
 
       // Create new chat document
       await chatRef.set({
@@ -54,6 +60,10 @@ class ChatService {
     required String senderId,
     required String receiverId,
     required String text,
+    MessageType type = MessageType.text,
+    String? imageUrl,
+    String? voiceUrl,
+    int? duration,
   }) async {
     final batch = _firestore.batch();
 
@@ -64,17 +74,38 @@ class ChatService {
         .collection('messages')
         .doc();
 
-    batch.set(messageRef, {
+    final messageData = {
       'text': text,
       'senderId': senderId,
       'receiverId': receiverId,
       'timestamp': FieldValue.serverTimestamp(),
-    });
+      'type': type.name,
+    };
+
+    // Add optional fields based on message type
+    if (type == MessageType.image && imageUrl != null) {
+      messageData['imageUrl'] = imageUrl;
+    } else if (type == MessageType.voice && voiceUrl != null) {
+      messageData['voiceUrl'] = voiceUrl;
+      messageData['duration'] = duration ?? 0;
+    }
+
+    batch.set(messageRef, messageData);
 
     // Update chat document with last message info
     final chatRef = _firestore.collection('chats').doc(chatId);
+    String lastMessagePreview;
+
+    if (type == MessageType.image) {
+      lastMessagePreview = '📷 Image';
+    } else if (type == MessageType.voice) {
+      lastMessagePreview = '🎤 Voice message';
+    } else {
+      lastMessagePreview = text;
+    }
+
     batch.update(chatRef, {
-      'lastMessage': text,
+      'lastMessage': lastMessagePreview,
       'lastMessageTime': FieldValue.serverTimestamp(),
     });
 
@@ -96,7 +127,10 @@ class ChatService {
         .collection('chats')
         .doc(chatId)
         .collection('messages')
-        .orderBy('timestamp', descending: false) // Ascending for chronological order
+        .orderBy(
+          'timestamp',
+          descending: false,
+        ) // Ascending for chronological order
         .snapshots();
   }
 
@@ -110,10 +144,10 @@ class ChatService {
     if (query.isEmpty) {
       return const Stream.empty();
     }
-    
+
     // Convert query to lowercase for case-insensitive search
     final lowerQuery = query.toLowerCase();
-    
+
     return _firestore
         .collection('users')
         .where('name', isGreaterThanOrEqualTo: lowerQuery)
@@ -123,10 +157,7 @@ class ChatService {
 
   /// Get all users (for search when no query provided)
   static Stream<QuerySnapshot> getAllUsers() {
-    return _firestore
-        .collection('users')
-        .orderBy('name')
-        .snapshots();
+    return _firestore.collection('users').orderBy('name').snapshots();
   }
 
   /// Check if current user has any chats
@@ -136,7 +167,7 @@ class ChatService {
         .where('participants', arrayContains: userId)
         .limit(1)
         .get();
-    
+
     return snapshot.docs.isNotEmpty;
   }
 
