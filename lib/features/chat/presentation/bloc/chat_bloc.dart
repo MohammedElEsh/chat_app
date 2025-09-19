@@ -1,13 +1,10 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:dartz/dartz.dart';
 
-import '../../../../core/errors/failures.dart';
 import '../../domain/entities/message_entity.dart';
 import '../../domain/usecases/send_message.dart';
 import '../../domain/usecases/get_messages.dart';
 import '../../domain/usecases/get_message_history.dart';
-import '../../domain/usecases/get_messages_stream.dart';
 import 'chat_event.dart';
 import 'chat_state.dart';
 
@@ -15,7 +12,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
   final SendMessage _sendMessage;
   final GetMessages _getMessages;
   final GetMessageHistory _getMessageHistory;
-  final GetMessagesStream _getMessagesStream;
   
   StreamSubscription? _messagesSubscription;
 
@@ -23,13 +19,9 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     this._sendMessage,
     this._getMessages,
     this._getMessageHistory,
-    this._getMessagesStream,
   ) : super(const ChatInitial()) {
     on<ChatStarted>(_onChatStarted);
-    on<LoadMessages>(_onLoadMessages);  // ✅ جديد
     on<ChatMessageSent>(_onChatMessageSent);
-    on<ChatImageSent>(_onChatImageSent);
-    on<ChatVoiceSent>(_onChatVoiceSent);
     on<ChatMessagesReceived>(_onChatMessagesReceived);
     on<ChatHistoryRequested>(_onChatHistoryRequested);
     on<ChatErrorOccurred>(_onChatErrorOccurred);
@@ -56,32 +48,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     );
   }
 
-  // ✅ جديد - معالج LoadMessages مع Stream في الوقت الفعلي
-  Future<void> _onLoadMessages(
-    LoadMessages event,
-    Emitter<ChatState> emit,
-  ) async {
-    emit(const ChatLoading());
-    
-    await _messagesSubscription?.cancel();
-    
-    await emit.forEach<Either<Failure, List<MessageEntity>>>(
-      _getMessagesStream(event.chatId),
-      onData: (result) {
-        return result.fold(
-          (failure) => ChatError(message: failure.message),
-          (messages) => ChatLoaded(
-            messages: messages, 
-            chatId: event.chatId, // ✅ حفظ chatId
-          ),
-        );
-      },
-      onError: (error, stackTrace) {
-        return ChatError(message: 'Failed to load messages: $error');
-      },
-    );
-  }
-
   Future<void> _onChatMessageSent(
     ChatMessageSent event,
     Emitter<ChatState> emit,
@@ -94,64 +60,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
         content: event.content,
         type: event.type,
         imageUrl: event.imageUrl,
-        voiceUrl: event.voiceUrl,
-        chatId: currentState.chatId, // ✅ تمرير chatId
-      );
-
-      result.fold(
-        (failure) {
-          emit(currentState.copyWith(isSendingMessage: false));
-          add(ChatErrorOccurred(failure.message));
-        },
-        (_) {
-          emit(currentState.copyWith(isSendingMessage: false));
-          // Message will be received through the stream
-        },
-      );
-    }
-  }
-
-  Future<void> _onChatImageSent(
-    ChatImageSent event,
-    Emitter<ChatState> emit,
-  ) async {
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      emit(currentState.copyWith(isSendingMessage: true));
-
-      final result = await _sendMessage(
-        content: '', // محتوى فارغ للصورة
-        type: MessageType.image,
-        imageUrl: event.imageUrl,
-        chatId: currentState.chatId, // ✅ تمرير chatId
-      );
-
-      result.fold(
-        (failure) {
-          emit(currentState.copyWith(isSendingMessage: false));
-          add(ChatErrorOccurred(failure.message));
-        },
-        (_) {
-          emit(currentState.copyWith(isSendingMessage: false));
-          // Message will be received through the stream
-        },
-      );
-    }
-  }
-
-  Future<void> _onChatVoiceSent(
-    ChatVoiceSent event,
-    Emitter<ChatState> emit,
-  ) async {
-    if (state is ChatLoaded) {
-      final currentState = state as ChatLoaded;
-      emit(currentState.copyWith(isSendingMessage: true));
-
-      final result = await _sendMessage(
-        content: '', // محتوى فارغ للرسالة الصوتية
-        type: MessageType.voice,
-        voiceUrl: event.voiceUrl, // ✅ استخدام voiceUrl بدلاً من imageUrl
-        chatId: currentState.chatId, // ✅ تمرير chatId
       );
 
       result.fold(
@@ -171,16 +79,7 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
     ChatMessagesReceived event,
     Emitter<ChatState> emit,
   ) {
-    // الحفاظ على chatId من الحالة الحالية إن وجد
-    String? currentChatId;
-    if (state is ChatLoaded) {
-      currentChatId = (state as ChatLoaded).chatId;
-    }
-    
-    emit(ChatLoaded(
-      messages: event.messages,
-      chatId: currentChatId,
-    ));
+    emit(ChatLoaded(messages: event.messages));
   }
 
   Future<void> _onChatHistoryRequested(
@@ -193,7 +92,6 @@ class ChatBloc extends Bloc<ChatEvent, ChatState> {
       final result = await _getMessageHistory(
         limit: event.limit,
         lastMessageId: event.lastMessageId,
-        chatId: event.chatId, // ✅ تمرير chatId
       );
 
       result.fold(

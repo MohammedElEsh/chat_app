@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/utils/constants.dart';
 import '../../domain/entities/message_entity.dart';
-import '../widgets/voice_message_player.dart';
+import 'voice_message_bubble.dart';
 
 class MessageBubble extends StatelessWidget {
   final String text;
@@ -13,6 +13,8 @@ class MessageBubble extends StatelessWidget {
   final Color chatBubbleColor;
   final MessageType messageType;
   final String? imageUrl;
+  final String? voiceUrl;
+  final int? voiceDuration;
 
   const MessageBubble({
     super.key,
@@ -23,6 +25,8 @@ class MessageBubble extends StatelessWidget {
     required this.chatBubbleColor,
     this.messageType = MessageType.text,
     this.imageUrl,
+    this.voiceUrl,
+    this.voiceDuration,
   });
 
   @override
@@ -82,7 +86,67 @@ class MessageBubble extends StatelessWidget {
                       ? CrossAxisAlignment.end
                       : CrossAxisAlignment.start,
                   children: [
-                    _buildMessageContent(),
+                    if (messageType == MessageType.image && imageUrl != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: Image.network(
+                          imageUrl!,
+                          width: maxBubbleWidth * 0.8, // Adjust image width
+                          fit: BoxFit.cover,
+                          loadingBuilder: (context, child, loadingProgress) {
+                            if (loadingProgress == null) return child;
+                            return SizedBox(
+                              width: maxBubbleWidth * 0.8,
+                              height: maxBubbleWidth * 0.8,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  value:
+                                      loadingProgress.expectedTotalBytes != null
+                                      ? loadingProgress.cumulativeBytesLoaded /
+                                            loadingProgress.expectedTotalBytes!
+                                      : null,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    isCurrentUser
+                                        ? Colors.white
+                                        : AppColors.primary,
+                                  ),
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                                width: maxBubbleWidth * 0.8,
+                                height: maxBubbleWidth * 0.8,
+                                color: Colors.grey[300],
+                                child: const Icon(
+                                  Icons.error,
+                                  color: Colors.red,
+                                ),
+                              ),
+                        ),
+                      )
+                    else if (messageType == MessageType.voice &&
+                        voiceUrl != null)
+                      VoiceMessageBubble(
+                        voiceUrl: voiceUrl!,
+                        duration: voiceDuration ?? 0,
+                        isCurrentUser: isCurrentUser,
+                        bubbleColor: isCurrentUser
+                            ? chatBubbleColor
+                            : AppColors.incomingMessageBubble,
+                        textColor: isCurrentUser
+                            ? Colors.white
+                            : Colors.black87,
+                      )
+                    else
+                      Text(
+                        text,
+                        style: TextStyle(
+                          color: isCurrentUser ? Colors.white : Colors.black87,
+                          fontSize: 16,
+                        ),
+                      ),
                     if (timestamp != null) ...[
                       const SizedBox(height: 4),
                       Text(
@@ -110,134 +174,6 @@ class MessageBubble extends StatelessWidget {
           ],
         ],
       ),
-    );
-  }
-
-  Widget _buildMessageContent() {
-    switch (messageType) {
-      case MessageType.image:
-        return _buildImageContent();
-      case MessageType.voice:
-        return _buildVoiceContent();
-      case MessageType.text:
-      return _buildTextContent();
-    }
-  }
-
-  Widget _buildTextContent() {
-    return Text(
-      text,
-      style: TextStyle(
-        color: isCurrentUser ? Colors.white : Colors.black87,
-        fontSize: 16,
-      ),
-    );
-  }
-
-  Widget _buildImageContent() {
-    if (imageUrl == null || imageUrl!.isEmpty) {
-      return _buildTextContent(); // Fallback to text if no image
-    }
-
-    return Column(
-      crossAxisAlignment: isCurrentUser
-          ? CrossAxisAlignment.end
-          : CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(12),
-          child: Image.network(
-            imageUrl!,
-            width: 200,
-            height: 200,
-            fit: BoxFit.cover,
-            loadingBuilder: (context, child, loadingProgress) {
-              if (loadingProgress == null) return child;
-              return Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: CircularProgressIndicator(
-                    value: loadingProgress.expectedTotalBytes != null
-                        ? loadingProgress.cumulativeBytesLoaded /
-                            loadingProgress.expectedTotalBytes!
-                        : null,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isCurrentUser ? Colors.white : AppColors.primary,
-                    ),
-                  ),
-                ),
-              );
-            },
-            errorBuilder: (context, error, stackTrace) {
-              return Container(
-                width: 200,
-                height: 200,
-                decoration: BoxDecoration(
-                  color: Colors.grey[300],
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.error, color: Colors.red, size: 32),
-                    SizedBox(height: 8),
-                    Text(
-                      'Failed to load image',
-                      style: TextStyle(color: Colors.red, fontSize: 12),
-                      textAlign: TextAlign.center,
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-        ),
-        if (text.isNotEmpty) ...[
-          const SizedBox(height: 8),
-          _buildTextContent(),
-        ],
-      ],
-    );
-  }
-
-  Widget _buildVoiceContent() {
-    if (imageUrl == null || imageUrl!.isEmpty) {
-      return _buildErrorVoiceContent();
-    }
-
-    return VoiceMessagePlayer(
-      voiceUrl: imageUrl!, // نستخدم imageUrl لحفظ رابط الصوت
-      isCurrentUser: isCurrentUser,
-      onPlayStateChanged: () {
-        // يمكن إضافة callbacks هنا لاحقاً
-      },
-    );
-  }
-  
-  Widget _buildErrorVoiceContent() {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(
-          Icons.error,
-          color: isCurrentUser ? Colors.white70 : Colors.red,
-          size: 20,
-        ),
-        const SizedBox(width: 8),
-        Text(
-          'خطأ في تحميل الرسالة الصوتية',
-          style: TextStyle(
-            color: isCurrentUser ? Colors.white70 : Colors.red,
-            fontSize: 14,
-            fontStyle: FontStyle.italic,
-          ),
-        ),
-      ],
     );
   }
 

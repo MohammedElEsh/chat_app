@@ -13,8 +13,6 @@ class SendMessage {
     required String content,
     required MessageType type,
     String? imageUrl,
-    String? voiceUrl,  // ✅ جديد للرسائل الصوتية
-    String? chatId,  // ✅ جديد
   }) async {
     if (content.trim().isEmpty && type == MessageType.text) {
       return Left(ValidationFailure('Message cannot be empty'));
@@ -24,8 +22,6 @@ class SendMessage {
       content: content,
       type: type,
       imageUrl: imageUrl,
-      voiceUrl: voiceUrl,
-      chatId: chatId,
     );
   }
 }

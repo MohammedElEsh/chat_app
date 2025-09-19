@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 import '../../domain/entities/message_entity.dart';
-import 'voice_message_player.dart';
 
 class MessageBubble extends StatelessWidget {
   final MessageEntity message;
@@ -164,32 +163,25 @@ class MessageBubble extends StatelessWidget {
           ],
         );
       case MessageType.voice:
-        if (message.voiceUrl != null) {
-          return VoiceMessagePlayer(
-            voiceUrl: message.voiceUrl!,
-            isCurrentUser: _isCurrentUser,
-          );
-        } else {
-          return Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error,
-                color: _isCurrentUser ? Colors.white : Colors.grey.shade600,
-                size: 20,
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.play_arrow,
+              color: _isCurrentUser ? Colors.white : Colors.grey.shade600,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Voice message',
+              style: TextStyle(
+                fontSize: 14,
+                color: _isCurrentUser ? Colors.white : Colors.black87,
+                fontStyle: FontStyle.italic,
               ),
-              const SizedBox(width: 8),
-              Text(
-                'Voice message unavailable',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: _isCurrentUser ? Colors.white : Colors.black87,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          );
-        }
+            ),
+          ],
+        );
     }
   }
 

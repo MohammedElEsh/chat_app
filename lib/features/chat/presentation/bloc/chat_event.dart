@@ -13,31 +13,19 @@ class ChatStarted extends ChatEvent {
   const ChatStarted();
 }
 
-// ✅ جديد لتحميل رسائل محادثة محددة
-class LoadMessages extends ChatEvent {
-  final String chatId;
-  
-  const LoadMessages(this.chatId);
-  
-  @override
-  List<Object> get props => [chatId];
-}
-
 class ChatMessageSent extends ChatEvent {
   final String content;
   final MessageType type;
   final String? imageUrl;
-  final String? voiceUrl;  // ✅ جديد
 
   const ChatMessageSent({
     required this.content,
     required this.type,
     this.imageUrl,
-    this.voiceUrl,
   });
 
   @override
-  List<Object?> get props => [content, type, imageUrl, voiceUrl];
+  List<Object?> get props => [content, type, imageUrl];
 }
 
 class ChatMessagesReceived extends ChatEvent {
@@ -58,45 +46,17 @@ class ChatMessageReadRequested extends ChatEvent {
   List<Object> get props => [messageId];
 }
 
-class ChatImageSent extends ChatEvent {
-  final String imageUrl;
-  final String chatId;
-
-  const ChatImageSent({
-    required this.imageUrl,
-    required this.chatId,
-  });
-
-  @override
-  List<Object> get props => [imageUrl, chatId];
-}
-
-class ChatVoiceSent extends ChatEvent {
-  final String voiceUrl;
-  final String chatId;
-
-  const ChatVoiceSent({
-    required this.voiceUrl,
-    required this.chatId,
-  });
-
-  @override
-  List<Object> get props => [voiceUrl, chatId];
-}
-
 class ChatHistoryRequested extends ChatEvent {
   final int limit;
   final String? lastMessageId;
-  final String? chatId; // ✅ إضافة chatId
 
   const ChatHistoryRequested({
     this.limit = 50,
     this.lastMessageId,
-    this.chatId, // ✅ إضافة chatId
   });
 
   @override
-  List<Object?> get props => [limit, lastMessageId, chatId];
+  List<Object?> get props => [limit, lastMessageId];
 }
 
 class ChatErrorOccurred extends ChatEvent {

@@ -16,16 +16,12 @@ class ChatRepositoryImpl implements ChatRepository {
     required String content,
     required MessageType type,
     String? imageUrl,
-    String? voiceUrl,  // ✅ جديد
-    String? chatId,  // ✅ جديد
   }) async {
     try {
       await dataSource.sendMessage(
         content: content,
         type: type,
         imageUrl: imageUrl,
-        voiceUrl: voiceUrl,
-        chatId: chatId,
       );
       return const Right(null);
     } on FirebaseAuthException catch (e) {
@@ -59,29 +55,6 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Stream<Either<Failure, List<MessageEntity>>> getMessagesStream(String chatId) {
-    try {
-      return dataSource.getMessagesStream(chatId).map((messages) {
-        final entities = messages.map((model) => model.toEntity()).toList();
-        return Right<Failure, List<MessageEntity>>(entities);
-      }).handleError((error) {
-        if (error is FirebaseAuthException) {
-          return Left<Failure, List<MessageEntity>>(
-            AuthFailure(_getAuthErrorMessage(error.code))
-          );
-        }
-        return Left<Failure, List<MessageEntity>>(
-          ServerFailure('Failed to get messages stream: ${error.toString()}')
-        );
-      });
-    } catch (e) {
-      return Stream.value(
-        Left(ServerFailure('Failed to get messages stream: ${e.toString()}'))
-      );
-    }
-  }
-
-  @override
   Future<Either<Failure, void>> markMessageAsRead(String messageId) async {
     try {
       await dataSource.markMessageAsRead(messageId);
@@ -97,13 +70,11 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<Either<Failure, List<MessageEntity>>> getMessageHistory({
     int limit = 50,
     String? lastMessageId,
-    String? chatId, // ✅ إضافة معامل chatId
   }) async {
     try {
       final messages = await dataSource.getMessageHistory(
         limit: limit,
         lastMessageId: lastMessageId,
-        chatId: chatId, // ✅ تمرير chatId
       );
       final entities = messages.map((model) => model.toEntity()).toList();
       return Right(entities);

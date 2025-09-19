@@ -11,27 +11,20 @@ class MessageModel extends MessageEntity {
     required super.createdAt,
     super.type = MessageType.text,
     super.imageUrl,
-    super.voiceUrl,
     super.isRead = false,
   });
 
   factory MessageModel.fromFirestore(DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
-    
-    // دعم كلاً من 'createdAt' و 'timestamp' للتوافق مع ChatService
-    Timestamp? timestamp = data['createdAt'] as Timestamp? ?? data['timestamp'] as Timestamp?;
-    DateTime createdAt = timestamp?.toDate() ?? DateTime.now();
-    
     return MessageModel(
       id: doc.id,
       senderId: data['senderId'] ?? '',
       senderName: data['senderName'] ?? '',
       senderEmail: data['senderEmail'] ?? '',
-      content: data['content'] ?? data['text'] ?? '', // دعم كلاً من 'content' و 'text'
-      createdAt: createdAt,
+      content: data['content'] ?? '',
+      createdAt: (data['createdAt'] as Timestamp).toDate(),
       type: _getMessageTypeFromString(data['type'] ?? 'text'),
       imageUrl: data['imageUrl'],
-      voiceUrl: data['voiceUrl'],
       isRead: data['isRead'] ?? false,
     );
   }
@@ -45,7 +38,6 @@ class MessageModel extends MessageEntity {
       'createdAt': Timestamp.fromDate(createdAt),
       'type': type.name,
       'imageUrl': imageUrl,
-      'voiceUrl': voiceUrl,
       'isRead': isRead,
     };
   }
@@ -60,7 +52,6 @@ class MessageModel extends MessageEntity {
       createdAt: entity.createdAt,
       type: entity.type,
       imageUrl: entity.imageUrl,
-      voiceUrl: entity.voiceUrl,
       isRead: entity.isRead,
     );
   }
@@ -75,7 +66,6 @@ class MessageModel extends MessageEntity {
       createdAt: createdAt,
       type: type,
       imageUrl: imageUrl,
-      voiceUrl: voiceUrl,
       isRead: isRead,
     );
   }

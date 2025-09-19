@@ -2,66 +2,79 @@ name: chat_app
 description: "A new Flutter project."
 publish_to: 'none'
 
+# App version
 version: 1.0.0+1
 
 environment:
   sdk: ^3.9.0
 
+# ================================
+# 🚀 Launcher Icons
+# ================================
 flutter_launcher_icons:
   android: true
   ios: true
   image_path: "assets/logo/app_logo.png"
   min_sdk_android: 21
 
+# ================================
+# 📦 Dependencies
+# ================================
 dependencies:
   flutter:
     sdk: flutter
 
-  # Firebase
+  # 🔥 Firebase Core Services
   firebase_core: ^4.1.0
   firebase_auth: ^6.0.2
   cloud_firestore: ^6.0.1
   firebase_storage: ^13.0.1
   firebase_messaging: ^16.0.1
 
-  # State Management
+  # 📊 State Management
   flutter_bloc: ^9.1.1
   equatable: ^2.0.7
   provider: ^6.1.5+1
 
-  # Navigation
+  # 🧭 Navigation
   go_router: ^16.2.1
 
-  # Media
+  # 🎨 Media & Audio
   image_picker: ^1.2.0
   flutter_image_compress: ^2.4.0
   record: ^5.0.4
   voice_message_package: ^2.2.1
   just_audio: ^0.9.36
 
-  # Permissions & Storage
+  # 🔐 Permissions & Local Storage
   permission_handler: ^12.0.1
   shared_preferences: ^2.5.3
   path_provider: ^2.1.5
 
-  # Cloud & Realtime
+  # ☁️ Cloud & Realtime
   supabase_flutter: ^2.10.1
   zego_uikit_prebuilt_call: ^4.18.3
   zego_uikit_signaling_plugin: ^2.8.17
 
-  # Utilities
+  # 🛠 Utilities
   dartz: ^0.10.1
-  intl: ^0.19.0   # ✅ متوافق مع voice_message_package
+  intl: ^0.19.0   # Compatible with voice_message_package
   uuid: ^4.5.1
 
-  # UI
+  # 🎨 UI
   cupertino_icons: ^1.0.8
 
+# ================================
+# ⚡ Dependency Overrides
+# ================================
 dependency_overrides:
-  just_audio: ^0.9.36   # ✅ لتوحيد النسخة بين Zego & Voice package
+  just_audio: ^0.9.36        # Force unify version between Zego & Voice package
   permission_handler: ^12.0.1
-  record_linux: 1.2.1  # Use newer version that has required method
+  record_linux: 1.2.1        # Fix: newer version with required method
 
+# ================================
+# 🧪 Dev Dependencies
+# ================================
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -73,6 +86,9 @@ dev_dependencies:
   mocktail: ^1.0.4
   bloc_test: ^10.0.0
 
+# ================================
+# 🎨 Flutter Assets
+# ================================
 flutter:
   uses-material-design: true
 
